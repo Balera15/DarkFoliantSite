@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111016">
+  <title>Книга Ферелдена</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-card panel">
+      <p class="eyebrow">Врата Ферелдена</p>
+      <h1>Авторизация</h1>
+      <p class="auth-card__lead">Войдите как DM или игрок, чтобы открыть нужный доступ к книге.</p>
+      <form id="authForm" class="auth-form">
+        <label class="auth-field">
+          <span>Логин</span>
+          <input type="text" name="username" autocomplete="username" placeholder="valera">
+        </label>
+        <label class="auth-field">
+          <span>Пароль</span>
+          <input type="password" name="password" autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <button class="action-btn" type="submit">Войти</button>
+      </form>
+      <p class="auth-hint">DM: <strong>valera / valera123</strong>. Игрок для проверки: <strong>ivan / ivan123</strong>.</p>
+      <p class="auth-error" id="authError"></p>
+    </div>
+  </div>
+
+  <div class="app-shell" id="appShell">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="hero">
+      <p class="eyebrow">Том странствий и тайн</p>
+      <h1>Книга Ферелдена</h1>
+      <p class="hero__lead">
+        Старинная магическая книга колдуна Валеры.
+      </p>
+      <div class="hero__userbar is-hidden" id="heroUserbar">
+        <div>
+          <span class="hero__role" id="roleBadge"></span>
+          <p class="hero__user" id="currentUserLabel"></p>
+        </div>
+        <button class="ghost-btn ghost-btn--small" id="logoutBtn" type="button">Выйти</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="screen is-active" data-view="bestiary">
+        <div class="screen__head">
+          <div>
+            <h2>Бестиарий</h2>
+          </div>
+          <span class="screen__badge">Библиотека существ</span>
+        </div>
+        <div class="creature-tools">
+          <input id="creatureSearch" type="search" placeholder="Поиск существа...">
+          <div class="filter-row" role="tablist" aria-label="Фильтр бестиария">
+            <button class="pill is-active" data-filter="all">Все</button>
+            <button class="pill" data-filter="undead">Нежить</button>
+            <button class="pill" data-filter="wild">Дикие</button>
+            <button class="pill" data-filter="arcane">Магические</button>
+          </div>
+        </div>
+        <form id="bestiaryForm" class="bestiary-editor panel dm-only is-hidden">
+          <input type="hidden" name="id">
+          <div class="lore-editor__head">
+            <div>
+              <p class="lore-editor__eyebrow">Редактор DM</p>
+              <h4 id="bestiaryEditorTitle">Новое существо</h4>
+            </div>
+            <div class="lore-editor__tools">
+              <button class="ghost-btn ghost-btn--small" id="bestiaryEditorNew" type="button">Новое</button>
+              <button class="ghost-btn ghost-btn--small" id="bestiaryEditorDelete" type="button">Удалить</button>
+            </div>
+          </div>
+          <div class="field-grid">
+            <label class="auth-field">
+              <span>Название</span>
+              <input type="text" name="name">
+            </label>
+            <label class="auth-field">
+              <span>Тип</span>
+              <select name="type">
+                <option value="wild">Дикие</option>
+                <option value="undead">Нежить</option>
+                <option value="arcane">Магические</option>
+              </select>
+            </label>
+            <label class="auth-field">
+              <span>Тег</span>
+              <input type="text" name="tag">
+            </label>
+            <label class="auth-field">
+              <span>Угроза</span>
+              <select name="dangerLevel">
+                <option value="safe">Безопасный</option>
+                <option value="low">Низкий</option>
+                <option value="medium">Средний</option>
+                <option value="high">Высокий</option>
+                <option value="critical">Критический</option>
+                <option value="legendary">Легендарный</option>
+                <option value="existential">Экзистенциальный</option>
+              </select>
+            </label>
+          </div>
+          <label class="auth-field">
+            <span>Описание</span>
+            <textarea name="description" rows="4"></textarea>
+          </label>
+          <label class="auth-field">
+            <span>Изображение существа</span>
+            <input type="text" name="image" placeholder="https://...">
+          </label>
+          <div class="journal-actions">
+            <button class="action-btn" type="submit">Сохранить существо</button>
+            <button class="ghost-btn" type="button" id="bestiaryFormReset">Сбросить</button>
+          </div>
+        </form>
+        <div class="grid cards-grid" id="bestiaryGrid"></div>
+      </section>
+
+      <section class="screen" data-view="lore">
+        <div class="screen__head">
+          <div>
+            <h2>Лор мира</h2>
+          </div>
+          <span class="screen__badge">История и хроники</span>
+        </div>
+        <article class="panel lore-panel">
+          <label class="lore-search" for="loreSearch">
+            <span>Поиск по лору</span>
+            <input id="loreSearch" type="search" placeholder="Поиск по записям">
+          </label>
+          <div class="lore-tabs" id="loreTabs"></div>
+          <form class="lore-quick dm-only is-hidden" id="loreQuickForm">
+            <input type="hidden" name="id" value="">
+            <div class="lore-editor__head">
+              <div>
+                <p class="lore-editor__eyebrow">Редактор DM</p>
+                <h4 id="loreEditorTitle">Редактирование раздела</h4>
+              </div>
+              <div class="lore-editor__tools">
+                <button class="ghost-btn ghost-btn--small" id="loreEditorNew" type="button">Новый</button>
+                <button class="ghost-btn ghost-btn--small" id="loreEditorDelete" type="button">Удалить</button>
+              </div>
+            </div>
+            <div class="lore-quick__grid">
+              <label class="auth-field">
+                <span>Раздел</span>
+                <input type="text" name="category" placeholder="История">
+              </label>
+              <label class="auth-field">
+                <span>Цвет раздела</span>
+                <select name="tone">
+                  <option value="lore-tone--ember">Янтарный</option>
+                  <option value="lore-tone--sage">Шалфейный</option>
+                  <option value="lore-tone--steel">Стальной</option>
+                  <option value="lore-tone--rose">Пепельно-розовый</option>
+                  <option value="lore-tone--violet">Сумеречный</option>
+                </select>
+              </label>
+              <label class="auth-field lore-quick__field--wide">
+                <span>Записи</span>
+                <textarea name="items" rows="6" placeholder="Каждая строка — новая запись"></textarea>
+              </label>
+            </div>
+            <div class="journal-actions">
+              <button class="action-btn" type="submit">Сохранить раздел</button>
+              <button class="ghost-btn" id="loreQuickReset" type="button">Сбросить</button>
+            </div>
+          </form>
+          <div class="lore-reader" id="loreContent"></div>
+        </article>
+      </section>
+
+      <section class="screen" data-view="journal">
+        <div class="screen__head">
+          <div>
+            <h2>Журнал сессии</h2>
+          </div>
+          <span class="screen__badge">Заметки группы</span>
+        </div>
+        <article class="panel">
+          <label class="field-label" for="sessionNotes">Поле записи</label>
+          <textarea id="sessionNotes" rows="10" placeholder="Кто пришёл на совет? Какие улики нашли? Что случилось у костра?"></textarea>
+          <div class="journal-actions">
+            <button class="action-btn" id="saveNotes">Сохранить</button>
+            <button class="ghost-btn" id="clearNotes">Очистить</button>
+          </div>
+          <p class="hint">Записи сохраняются на сервере книги.</p>
+        </article>
+      </section>
+
+      <section class="screen" data-view="settings">
+        <div class="screen__head">
+          <div>
+            <h2>Настройки</h2>
+          </div>
+          <span class="screen__badge">Темы и вид</span>
+        </div>
+        <div class="panel settings-panel">
+          <div class="setting-card">
+            <div>
+              <h3>Аккаунт</h3>
+              <p id="accountSummary">Сейчас вы не вошли в систему.</p>
+            </div>
+            <div class="journal-actions">
+              <button class="action-btn" type="button" id="settingsLogoutBtn">Выйти из аккаунта</button>
+            </div>
+          </div>
+          <div class="setting-card">
+            <div>
+              <h3>Тема мира</h3>
+              <p>Выберите атмосферу для книги.</p>
+            </div>
+            <div class="theme-list" id="themeList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" data-view="map">
+        <div class="screen__head">
+          <div>
+            <h2>Карта</h2>
+          </div>
+          <span class="screen__badge">Путеводная карта</span>
+        </div>
+        <article class="panel map-panel">
+          <img src="assets/map.svg" alt="Карта Ферелдена">
+        </article>
+      </section>
+
+      <section class="screen" data-view="character">
+        <div class="screen__head">
+          <div>
+            <h2>Карточка персонажа</h2>
+          </div>
+        </div>
+        <div id="characterView"></div>
+      </section>
+
+      <section class="screen dm-only" data-view="dm">
+        <div class="screen__head">
+          <div>
+            <h2>Управление</h2>
+          </div>
+          <span class="screen__badge">Только DM</span>
+        </div>
+
+        <div class="dm-layout">
+          <article class="panel admin-section">
+            <h3>Аккаунты игроков</h3>
+            <form id="userForm" class="admin-form">
+              <input type="hidden" name="id">
+              <div class="field-grid">
+                <label class="auth-field">
+                  <span>Логин</span>
+                  <input type="text" name="username" placeholder="ivan">
+                </label>
+                <label class="auth-field">
+                  <span>Имя</span>
+                  <input type="text" name="displayName" placeholder="Иван">
+                </label>
+                <label class="auth-field">
+                  <span>Пароль</span>
+                  <input type="text" name="password" placeholder="ivan123">
+                </label>
+                <label class="auth-field">
+                  <span>Персонаж</span>
+                  <select name="characterId" id="userCharacterSelect"></select>
+                </label>
+              </div>
+              <div class="journal-actions">
+                <button class="action-btn" type="submit">Сохранить аккаунт</button>
+                <button class="ghost-btn" type="button" id="userFormReset">Сброс</button>
+              </div>
+            </form>
+            <div class="admin-list" id="userList"></div>
+          </article>
+
+          <article class="panel admin-section">
+            <h3>Персонажи</h3>
+            <form id="characterForm" class="admin-form">
+              <input type="hidden" name="id">
+              <div class="field-grid">
+                <label class="auth-field">
+                  <span>Имя</span>
+                  <input type="text" name="name" placeholder="Ольгия...">
+                </label>
+                <label class="auth-field">
+                  <span>Раса</span>
+                  <input type="text" name="race" placeholder="Гитьянка">
+                </label>
+                <label class="auth-field">
+                  <span>Класс</span>
+                  <input type="text" name="className" placeholder="Варвар">
+                </label>
+                <label class="auth-field">
+                  <span>Хозяин</span>
+                  <select name="ownerUserId" id="characterOwnerSelect"></select>
+                </label>
+                <label class="auth-field">
+                  <span>Здоровье</span>
+                  <input type="number" name="health" min="0">
+                </label>
+              <label class="auth-field">
+                <span>Броня</span>
+                <input type="number" name="armor" min="0">
+              </label>
+              <label class="auth-field field-grid__wide">
+                <span>Изображение персонажа</span>
+                <input type="text" name="image" placeholder="https://...">
+              </label>
+            </div>
+              <div class="field-grid field-grid--stats">
+                <label class="auth-field"><span>Сила</span><input type="number" name="strength" min="0"></label>
+                <label class="auth-field"><span>Ловкость</span><input type="number" name="dexterity" min="0"></label>
+                <label class="auth-field"><span>Выносл.</span><input type="number" name="constitution" min="0"></label>
+                <label class="auth-field"><span>Мудр.</span><input type="number" name="wisdom" min="0"></label>
+                <label class="auth-field"><span>Интел.</span><input type="number" name="intelligence" min="0"></label>
+                <label class="auth-field"><span>Харизма</span><input type="number" name="charisma" min="0"></label>
+              </div>
+              <label class="auth-field">
+                <span>Оружие</span>
+                <input type="text" name="weapon">
+              </label>
+              <label class="auth-field">
+                <span>Навыки</span>
+                <textarea name="skills" rows="4" placeholder="Каждый навык с новой строки"></textarea>
+              </label>
+              <label class="auth-field">
+                <span>Инвентарь</span>
+                <textarea name="inventory" rows="4" placeholder="Каждый предмет с новой строки"></textarea>
+              </label>
+              <label class="auth-field">
+                <span>Описание</span>
+                <textarea name="description" rows="5"></textarea>
+              </label>
+              <div class="journal-actions">
+                <button class="action-btn" type="submit">Сохранить персонажа</button>
+                <button class="ghost-btn" type="button" id="characterFormReset">Сброс</button>
+              </div>
+            </form>
+            <div class="admin-list" id="characterList"></div>
+          </article>
+
+          <article class="panel admin-section">
+            <h3>Карта</h3>
+            <form id="mapForm" class="admin-form">
+              <label class="auth-field">
+                <span>Ссылка на карту</span>
+                <input type="text" name="src" placeholder="assets/map.svg">
+              </label>
+              <label class="auth-field">
+                <span>Подпись</span>
+                <input type="text" name="note" placeholder="Путеводная карта">
+              </label>
+              <div class="journal-actions">
+                <button class="action-btn" type="submit">Сохранить карту</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <button class="nav-item is-active" data-target="bestiary">Бестиарий</button>
+      <button class="nav-item" data-target="lore">Лор</button>
+      <button class="nav-item" data-target="journal">Журнал</button>
+      <button class="nav-item" data-target="settings">Настройки</button>
+      <button class="nav-item" data-target="map">Карта</button>
+      <button class="nav-item" data-target="character">Персонаж</button>
+      <button class="nav-item dm-only is-hidden" data-target="dm">Управление</button>
+    </nav>
+
+    <div class="media-modal is-hidden" id="mediaModal" aria-hidden="true">
+      <div class="media-modal__backdrop" data-close-media="true"></div>
+      <div class="media-modal__dialog panel" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle">
+        <button class="media-modal__close ghost-btn ghost-btn--small" id="mediaModalClose" type="button">Закрыть</button>
+        <p class="media-modal__eyebrow" id="mediaModalEyebrow"></p>
+        <h3 class="media-modal__title" id="mediaModalTitle"></h3>
+        <div class="media-modal__frame" id="mediaModalFrame"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

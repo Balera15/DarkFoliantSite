@@ -1,0 +1,133 @@
+{
+  "users": [
+    {
+      "id": "dm-1",
+      "username": "valera",
+      "displayName": "Валера",
+      "role": "dm",
+      "characterId": "",
+      "passwordHash": "6ca054b778b97f9011dc39400ccc5ec9:ec163f08eb594afa8bd2aaf92b7f23249b10a58732e9f4a679dbe69fdc60288eab31454b87893711fa61b21291fd5ddeb3b862736b303c6996f39831b3e7493d"
+    },
+    {
+      "id": "player-ivan",
+      "username": "ivan",
+      "displayName": "Иван",
+      "role": "player",
+      "characterId": "char-olygia",
+      "passwordHash": "7090155b3665af221595ae44d03a0a2d:6152493fe4042083f79605c258752039b3331e04b1cc579cd956a1af90e579fe2db1305843516f6dbdb141f1698ef419b067b26c05109061d2c81d594781cc51"
+    },
+    {
+      "id": "player-anna",
+      "username": "anna",
+      "displayName": "Анна",
+      "role": "player",
+      "characterId": "",
+      "passwordHash": "cdd253d3b77ecdcb00eb5e169b314ae2:2003fb25aa6570139e297ae77770b48937b3355b5c6ddfff95c71e72ea327868611d0b70f8f06543cb0e4513aa216170f711d99125b39c363879fd41afde0423"
+    }
+  ],
+  "characters": [
+    {
+      "id": "char-olygia",
+      "name": "Ольгия \"Шальной-хвост\"",
+      "race": "Гитьянка",
+      "className": "Варвар",
+      "health": 29,
+      "armor": 16,
+      "stats": {
+        "strength": 16,
+        "dexterity": 12,
+        "constitution": 14,
+        "wisdom": 12,
+        "intelligence": 8,
+        "charisma": 10
+      },
+      "weapon": "Тест",
+      "image": "",
+      "skills": [],
+      "inventory": [],
+      "description": "Тест",
+      "ownerUserId": "player-ivan"
+    }
+  ],
+  "bestiary": [
+    {
+      "id": "be-1",
+      "name": "Пепельный волк",
+      "type": "wild",
+      "tag": "Стая",
+      "description": "Тест",
+      "dangerLevel": "medium",
+      "image": ""
+    },
+    {
+      "id": "be-2",
+      "name": "Костяной сир",
+      "type": "wild",
+      "tag": "Служитель усыпальниц",
+      "description": "Говорит шёпотом из-под шлема и собирает имена павших в кости.",
+      "dangerLevel": "high",
+      "image": ""
+    },
+    {
+      "id": "be-3",
+      "name": "Лунная виверна",
+      "type": "arcane",
+      "tag": "Тварь древних пиков",
+      "description": "Её чешуя отражает небо, которого нет, а дыхание светится холодом.",
+      "dangerLevel": "legendary",
+      "image": ""
+    }
+  ],
+  "lore": [
+    {
+      "id": "lore-history",
+      "category": "История",
+      "tone": "lore-tone--ember",
+      "items": [
+        "Эпоха Туманов: мир скрыт за вечной дымкой, а границы королевств зависят от костров путников.",
+        "Падение Башни Севера: старая крепость раскололась надвое, когда артефактный колокол прозвучал без звонаря."
+      ]
+    },
+    {
+      "id": "lore-peoples",
+      "category": "Народы",
+      "tone": "lore-tone--sage",
+      "items": [
+        "Кочевники кромки леса чтят знаки ветра и не называют волков по имени.",
+        "Чернильные писцы хранят родословные на свитках, пропитанных пеплом."
+      ]
+    },
+    {
+      "id": "lore-realms",
+      "category": "Государства",
+      "tone": "lore-tone--steel",
+      "items": [
+        "Серебряный Дом держит северные дороги и требует плату не монетой, а клятвой.",
+        "Княжество Трёх Башен правит через совет магистров и старые печати."
+      ]
+    },
+    {
+      "id": "lore-places",
+      "category": "Поселения",
+      "tone": "lore-tone--rose",
+      "items": [
+        "Лесная Слобода стоит на костяных мостках и закрывает ставни до заката.",
+        "Село Каменных Колодцев живёт вокруг источника, который, говорят, помнит имена умерших."
+      ]
+    },
+    {
+      "id": "lore-other",
+      "category": "Разное",
+      "tone": "lore-tone--violet",
+      "items": [
+        "Клятва Чернильного Совета запрещает открывать имена мёртвых до окончания зимы.",
+        "Возвращение Драконьих Писцов подарило первые карты, где реки помечены рунами."
+      ]
+    }
+  ],
+  "map": {
+    "src": "assets/map.svg",
+    "note": "Путеводная карта"
+  },
+  "journal": ""
+}
