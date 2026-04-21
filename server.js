@@ -7,17 +7,9 @@ const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT || 8000);
 const ROOT = __dirname;
 const RACES_DIR = path.join(ROOT, "assets", "races");
-const DEFAULT_DATA_DIR = path.join(ROOT, "data");
-const APP_DATA_DIR = process.env.APP_DATA_DIR
-  ? path.resolve(process.env.APP_DATA_DIR)
-  : DEFAULT_DATA_DIR;
-const USE_EXTERNAL_STORAGE = APP_DATA_DIR !== DEFAULT_DATA_DIR;
-const DB_PATH = path.join(APP_DATA_DIR, "db.json");
-const RACE_UPLOAD_DIR = USE_EXTERNAL_STORAGE
-  ? path.join(APP_DATA_DIR, "race-images")
-  : path.join(RACES_DIR, "uploads");
-const MEDIA_ROUTE_PREFIX = "/media/races/";
-const PUBLIC_RACE_UPLOAD_PREFIX = USE_EXTERNAL_STORAGE ? MEDIA_ROUTE_PREFIX : "assets/races/uploads/";
+const DATA_DIR = path.join(ROOT, "data");
+const DB_PATH = path.join(DATA_DIR, "db.json");
+const RACE_UPLOAD_DIR = path.join(RACES_DIR, "uploads");
 const SESSION_COOKIE = "ferelden_sid";
 const DANGER_LEVEL_LABELS = {
   safe: "Угроза: безопасный",
@@ -204,7 +196,7 @@ let db;
 db = loadDb();
 
 function ensureDataDir() {
-  fs.mkdirSync(APP_DATA_DIR, { recursive: true });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(RACES_DIR, { recursive: true });
   fs.mkdirSync(RACE_UPLOAD_DIR, { recursive: true });
 }
@@ -322,15 +314,7 @@ function normalizeDb(value) {
 
 function loadDb() {
   if (!fs.existsSync(DB_PATH)) {
-    const seedSourcePath = fs.existsSync(path.join(DEFAULT_DATA_DIR, "db.json"))
-      ? path.join(DEFAULT_DATA_DIR, "db.json")
-      : null;
-    let seeded = normalizeDb(defaultDb);
-    if (seedSourcePath) {
-      try {
-        seeded = normalizeDb(JSON.parse(fs.readFileSync(seedSourcePath, "utf8")));
-      } catch {}
-    }
+    const seeded = normalizeDb(defaultDb);
     saveDb(seeded);
     return seeded;
   }
@@ -493,22 +477,6 @@ function slugifyRaceName(name) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-+/g, "-");
-}
-
-function publicRaceUploadPath(fileName) {
-  return `${PUBLIC_RACE_UPLOAD_PREFIX}${fileName}`.replace(/\\/g, "/");
-}
-
-function resolveRaceUploadAbsolutePath(publicPath) {
-  const source = String(publicPath || "").trim();
-  if (!source) return "";
-  if (source.startsWith(MEDIA_ROUTE_PREFIX)) {
-    return path.join(RACE_UPLOAD_DIR, source.slice(MEDIA_ROUTE_PREFIX.length));
-  }
-  if (!USE_EXTERNAL_STORAGE && source.startsWith("assets/races/uploads/")) {
-    return path.join(ROOT, source);
-  }
-  return "";
 }
 
 function decodeDataUrl(dataUrl) {
@@ -1119,8 +1087,8 @@ async function handleApi(request, response, url) {
 
     const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
     if (previous) {
-      const previousPath = resolveRaceUploadAbsolutePath(previous);
-      if (previousPath && previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
+      const previousPath = path.join(ROOT, previous);
+      if (previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
         fs.unlinkSync(previousPath);
       }
     }
@@ -1128,7 +1096,7 @@ async function handleApi(request, response, url) {
     const fileName = `${slug}${decoded.ext}`;
     const targetPath = path.join(RACE_UPLOAD_DIR, fileName);
     fs.writeFileSync(targetPath, decoded.buffer);
-    db.raceImages = { ...db.raceImages, [slug]: publicRaceUploadPath(fileName) };
+    db.raceImages = { ...db.raceImages, [slug]: path.join("assets", "races", "uploads", fileName).replace(/\\/g, "/") };
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
     return;
@@ -1140,8 +1108,8 @@ async function handleApi(request, response, url) {
     const slug = decodeURIComponent(url.pathname.slice("/api/race-images/".length));
     const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
     if (previous) {
-      const previousPath = resolveRaceUploadAbsolutePath(previous);
-      if (previousPath && previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
+      const previousPath = path.join(ROOT, previous);
+      if (previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
         fs.unlinkSync(previousPath);
       }
     }
@@ -1176,18 +1144,6 @@ function serveStatic(response, filePath) {
   fs.createReadStream(absolutePath).pipe(response);
 }
 
-function serveFile(response, absolutePath) {
-  if (!absolutePath || !fs.existsSync(absolutePath) || fs.statSync(absolutePath).isDirectory()) {
-    sendError(response, 404, "Файл не найден.");
-    return;
-  }
-
-  response.writeHead(200, {
-    "Content-Type": mimeTypes[path.extname(absolutePath).toLowerCase()] || "application/octet-stream"
-  });
-  fs.createReadStream(absolutePath).pipe(response);
-}
-
 const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
@@ -1199,17 +1155,6 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       sendError(response, 405, "Метод не поддерживается.");
-      return;
-    }
-
-    if (url.pathname.startsWith(MEDIA_ROUTE_PREFIX)) {
-      const relativePath = decodeURIComponent(url.pathname.slice(MEDIA_ROUTE_PREFIX.length));
-      const absolutePath = path.join(RACE_UPLOAD_DIR, relativePath);
-      if (!absolutePath.startsWith(RACE_UPLOAD_DIR)) {
-        sendError(response, 403, "Доступ запрещён.");
-        return;
-      }
-      serveFile(response, absolutePath);
       return;
     }
 
