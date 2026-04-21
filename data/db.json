@@ -9,20 +9,28 @@
       "passwordHash": "6ca054b778b97f9011dc39400ccc5ec9:ec163f08eb594afa8bd2aaf92b7f23249b10a58732e9f4a679dbe69fdc60288eab31454b87893711fa61b21291fd5ddeb3b862736b303c6996f39831b3e7493d"
     },
     {
-      "id": "player-anna",
-      "username": "anna",
-      "displayName": "Анна",
+      "id": "user-63bfe5c9-18e2-40b7-bb20-213c768eacca",
+      "username": "andrey",
+      "displayName": "Андрей",
       "role": "player",
-      "characterId": "char-ee559004-fc73-4d44-8e88-030e30befcda",
-      "passwordHash": "08f1de22e08a27e9d5de770bdd8ad734:5b15d8db908e4a4df9398bea261fea7bb2056deb9a546d5903dfeddae46f622110bba6abde576309df31c29b5d5b3eb40253b256b67bb5fb3ac789385972098e"
+      "characterId": "",
+      "passwordHash": "b467bdfe932ed7796889659491b7e8b9:a3b9d42528348bcccae293c7641858aeacb7a2a2bd01d0955fee717afab644b060371fd96a22396159a0dea07c7e18f28b2456fb80c15bb3d384c2ad4de43b00"
     },
     {
-      "id": "player-ivan",
-      "username": "ivan",
-      "displayName": "Иван",
+      "id": "user-64d8784f-6786-4755-a14e-4b5f00e2ed95",
+      "username": "olga",
+      "displayName": "Ольга",
       "role": "player",
-      "characterId": "char-f37c35b2-8be9-4e4d-ace6-c046f34799b1",
-      "passwordHash": "7090155b3665af221595ae44d03a0a2d:6152493fe4042083f79605c258752039b3331e04b1cc579cd956a1af90e579fe2db1305843516f6dbdb141f1698ef419b067b26c05109061d2c81d594781cc51"
+      "characterId": "",
+      "passwordHash": "de961cc63295462f94c0945b69ec2606:3a46485b4bc8766cd66eb654e6def646e47ed05f9a97e81a0e0fd36567c187c63b646d4602932fbee58c358d0ca662a9215db7d9075b74570f3b7d2451d580ff"
+    },
+    {
+      "id": "user-d46bdfc1-feff-4ef0-b19c-e1f09426decf",
+      "username": "timur",
+      "displayName": "Тимур",
+      "role": "player",
+      "characterId": "",
+      "passwordHash": "e2769c6ecc6acd2a0a2f347e2fdde24f:60c69d1f1d87f2eb642854bef3c084c72a34c6c0c51e502ee160f7f02afc9eb9bd8c202b18cf5e8634bebcc9445e4aba9897a1df9c82f4c855eff3ae86406691"
     }
   ],
   "characters": [
@@ -47,52 +55,6 @@
       "inventory": [],
       "description": "Тест",
       "ownerUserId": ""
-    },
-    {
-      "id": "char-ee559004-fc73-4d44-8e88-030e30befcda",
-      "name": "Хуй",
-      "race": "Песос",
-      "className": "вввв",
-      "health": 11,
-      "armor": 12,
-      "stats": {
-        "strength": 1,
-        "dexterity": 1,
-        "constitution": 1,
-        "wisdom": 1,
-        "intelligence": 1,
-        "charisma": 1
-      },
-      "weapon": "Ган",
-      "image": "",
-      "skills": [],
-      "inventory": [],
-      "description": "",
-      "ownerUserId": "player-anna"
-    },
-    {
-      "id": "char-f37c35b2-8be9-4e4d-ace6-c046f34799b1",
-      "name": "Пупка",
-      "race": "Фея",
-      "className": "Варвар",
-      "health": 10,
-      "armor": 12,
-      "stats": {
-        "strength": 1,
-        "dexterity": 1,
-        "constitution": 22,
-        "wisdom": 12,
-        "intelligence": 11,
-        "charisma": 12
-      },
-      "weapon": "Меч",
-      "image": "",
-      "skills": [
-        "ыыы пупка"
-      ],
-      "inventory": [],
-      "description": "ААААААрх!",
-      "ownerUserId": "player-ivan"
     }
   ],
   "bestiary": [
@@ -217,21 +179,7 @@
       ]
     }
   ],
-  "characterRequests": [
-    {
-      "id": "req-bb3f4d82-179c-432e-823d-ae53312ca6b2",
-      "userId": "player-ivan",
-      "username": "ivan",
-      "displayName": "Иван",
-      "name": "Пупка",
-      "race": "Фея",
-      "className": "Варвар",
-      "description": "ААААААрх!",
-      "status": "approved",
-      "createdAt": "2026-04-20T19:39:12.476Z",
-      "updatedAt": "2026-04-20T19:41:04.558Z"
-    }
-  ],
+  "characterRequests": [],
   "raceImages": {},
   "game": {
     "isActive": false
