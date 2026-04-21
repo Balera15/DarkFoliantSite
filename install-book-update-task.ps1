@@ -10,11 +10,13 @@ if ($IntervalMinutes -lt 1) {
 }
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$updateScript = Join-Path $projectRoot "update-book.ps1"
+$taskRunner = Join-Path $projectRoot "run-update-book.cmd"
 $taskName = "FereldenBookAutoUpdate"
 $startTime = (Get-Date).AddMinutes(1).ToString("HH:mm")
-$taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$updateScript`" -Port $Port"
-$escapedTaskCommand = $taskCommand.Replace('"', '\"')
+
+if (-not (Test-Path $taskRunner)) {
+  throw "Task runner not found: $taskRunner"
+}
 
 $createArgs = @(
   "/Create",
@@ -22,7 +24,7 @@ $createArgs = @(
   "/SC", "MINUTE",
   "/MO", "$IntervalMinutes",
   "/TN", $taskName,
-  "/TR", $escapedTaskCommand,
+  "/TR", "`"$taskRunner`" $Port",
   "/ST", $startTime
 )
 
