@@ -234,7 +234,7 @@
   ],
   "raceImages": {},
   "game": {
-    "isActive": true
+    "isActive": false
   },
   "map": {
     "src": "assets/map.svg",
