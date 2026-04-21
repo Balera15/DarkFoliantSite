@@ -26,6 +26,7 @@ Set-Location $projectRoot
 New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
 
+# The work laptop should stay deployment-only, so we abort on tracked local edits.
 $status = Invoke-Git -Arguments @("status", "--porcelain", "--untracked-files=no")
 if ($status) {
   throw "Working tree is not clean on the work laptop. Auto-update stopped to avoid overwriting local changes."
