@@ -7,9 +7,15 @@ const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT || 8000);
 const ROOT = __dirname;
 const RACES_DIR = path.join(ROOT, "assets", "races");
-const DATA_DIR = path.join(ROOT, "data");
+const DEFAULT_DATA_DIR = path.join(ROOT, "data");
+const DEFAULT_MEDIA_DIR = path.join(RACES_DIR, "uploads");
+const DATA_DIR = path.resolve(process.env.DATA_DIR || DEFAULT_DATA_DIR);
 const DB_PATH = path.join(DATA_DIR, "db.json");
-const RACE_UPLOAD_DIR = path.join(RACES_DIR, "uploads");
+const DB_SEED_PATH = path.join(DEFAULT_DATA_DIR, "db.json");
+const MEDIA_DIR = path.resolve(process.env.MEDIA_DIR || DEFAULT_MEDIA_DIR);
+const MEDIA_PUBLIC_PREFIX = String(process.env.MEDIA_PUBLIC_PREFIX || (process.env.MEDIA_DIR ? "media/races/uploads" : "assets/races/uploads"))
+  .replace(/^\/+|\/+$/g, "");
+const RACE_UPLOAD_DIR = process.env.MEDIA_DIR ? path.join(MEDIA_DIR, "races", "uploads") : MEDIA_DIR;
 const SESSION_COOKIE = "ferelden_sid";
 const DANGER_LEVEL_LABELS = {
   safe: "Угроза: безопасный",
@@ -201,6 +207,15 @@ function ensureDataDir() {
   fs.mkdirSync(RACE_UPLOAD_DIR, { recursive: true });
 }
 
+function getRaceImagePublicPath(fileName) {
+  return path.join(MEDIA_PUBLIC_PREFIX, fileName).replace(/\\/g, "/");
+}
+
+function getRaceImageAbsolutePath(storedPath) {
+  const fileName = path.basename(String(storedPath || "").trim());
+  return fileName ? path.join(RACE_UPLOAD_DIR, fileName) : "";
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.pbkdf2Sync(password, salt, 120000, 64, "sha512").toString("hex");
@@ -314,17 +329,26 @@ function normalizeDb(value) {
 
 function loadDb() {
   if (!fs.existsSync(DB_PATH)) {
-    const seeded = normalizeDb(defaultDb);
+    const seeded = loadSeedDb();
     saveDb(seeded);
     return seeded;
   }
   try {
     return normalizeDb(JSON.parse(fs.readFileSync(DB_PATH, "utf8")));
   } catch {
-    const seeded = normalizeDb(defaultDb);
+    const seeded = loadSeedDb();
     saveDb(seeded);
     return seeded;
   }
+}
+
+function loadSeedDb() {
+  try {
+    if (fs.existsSync(DB_SEED_PATH)) {
+      return normalizeDb(JSON.parse(fs.readFileSync(DB_SEED_PATH, "utf8")));
+    }
+  } catch {}
+  return normalizeDb(defaultDb);
 }
 
 function saveDb(nextDb) {
@@ -1087,8 +1111,8 @@ async function handleApi(request, response, url) {
 
     const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
     if (previous) {
-      const previousPath = path.join(ROOT, previous);
-      if (previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
+      const previousPath = getRaceImageAbsolutePath(previous);
+      if (previousPath && previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
         fs.unlinkSync(previousPath);
       }
     }
@@ -1096,7 +1120,7 @@ async function handleApi(request, response, url) {
     const fileName = `${slug}${decoded.ext}`;
     const targetPath = path.join(RACE_UPLOAD_DIR, fileName);
     fs.writeFileSync(targetPath, decoded.buffer);
-    db.raceImages = { ...db.raceImages, [slug]: path.join("assets", "races", "uploads", fileName).replace(/\\/g, "/") };
+    db.raceImages = { ...db.raceImages, [slug]: getRaceImagePublicPath(fileName) };
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
     return;
@@ -1108,8 +1132,8 @@ async function handleApi(request, response, url) {
     const slug = decodeURIComponent(url.pathname.slice("/api/race-images/".length));
     const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
     if (previous) {
-      const previousPath = path.join(ROOT, previous);
-      if (previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
+      const previousPath = getRaceImageAbsolutePath(previous);
+      if (previousPath && previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
         fs.unlinkSync(previousPath);
       }
     }
@@ -1126,9 +1150,14 @@ async function handleApi(request, response, url) {
 }
 
 function serveStatic(response, filePath) {
+  serveStaticFromBase(response, ROOT, filePath);
+}
+
+function serveStaticFromBase(response, baseDir, filePath) {
   const safePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
-  const absolutePath = path.join(ROOT, safePath);
-  if (!absolutePath.startsWith(ROOT)) {
+  const absolutePath = path.resolve(baseDir, safePath);
+  const allowedRoot = path.resolve(baseDir);
+  if (!absolutePath.startsWith(allowedRoot)) {
     sendError(response, 403, "Доступ запрещён.");
     return;
   }
@@ -1160,6 +1189,12 @@ const server = http.createServer(async (request, response) => {
 
     if (url.pathname === "/") {
       serveStatic(response, "index.html");
+      return;
+    }
+
+    if (url.pathname.startsWith(`/${MEDIA_PUBLIC_PREFIX}/`)) {
+      const relativeMediaPath = url.pathname.slice(`/${MEDIA_PUBLIC_PREFIX}/`.length);
+      serveStaticFromBase(response, RACE_UPLOAD_DIR, relativeMediaPath);
       return;
     }
 
