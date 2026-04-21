@@ -1860,6 +1860,24 @@ body.dm-desktop-mode .workspace > .screen:not([data-view="dm"]),
   grid-column: 1;
 }
 
+html.dm-desktop-mode[data-active-view="lore"] .workspace,
+body.dm-desktop-mode[data-active-view="lore"] .workspace,
+.dm-desktop-mode[data-active-view="lore"] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="dm"],
+body.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="dm"],
+.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="dm"] {
+  display: none !important;
+}
+
+html.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="lore"],
+body.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="lore"],
+.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="lore"] {
+  grid-column: 1 / -1;
+}
+
 html.dm-desktop-mode .workspace > .screen[data-view="bestiary"],
 body.dm-desktop-mode .workspace > .screen[data-view="bestiary"],
 .dm-desktop-mode .workspace > .screen[data-view="bestiary"] { order: 1; }

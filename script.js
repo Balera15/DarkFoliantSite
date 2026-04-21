@@ -806,6 +806,8 @@ function setView(view) {
   navItems.forEach((button) =>
     button.classList.toggle("is-active", button.dataset.target === view)
   );
+  document.documentElement.dataset.activeView = view;
+  document.body.dataset.activeView = view;
   if (view === "journal") hideJournalUpdateToast();
   updateFloatingLoreSearch();
 }
