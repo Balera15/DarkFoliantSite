@@ -180,6 +180,14 @@ const loreQuickReset = document.getElementById("loreQuickReset");
 const loreEditorTitle = document.getElementById("loreEditorTitle");
 const loreEditorNew = document.getElementById("loreEditorNew");
 const loreEditorDelete = document.getElementById("loreEditorDelete");
+const loreTableForm = document.getElementById("loreTableForm");
+const loreTableHead = document.getElementById("loreTableHead");
+const loreTableBody = document.getElementById("loreTableBody");
+const loreTableReset = document.getElementById("loreTableReset");
+const loreTableEditorTitle = document.getElementById("loreTableEditorTitle");
+const loreTableEditorNew = document.getElementById("loreTableEditorNew");
+const loreTableEditorDelete = document.getElementById("loreTableEditorDelete");
+const loreTableAddRow = document.getElementById("loreTableAddRow");
 const lorePanel = document.querySelector(".lore-panel");
 const mediaModal = document.getElementById("mediaModal");
 const mediaModalFrame = document.getElementById("mediaModalFrame");
@@ -474,6 +482,106 @@ function parseLabeledLoreRecord(text, labels) {
   }
 
   return Object.fromEntries(sections.map((section) => [section.label, section.value]));
+}
+
+function normalizedLoreCategory(category) {
+  return String(category || "").trim().toLowerCase();
+}
+
+function getLoreTableSchema(category) {
+  const normalized = normalizedLoreCategory(category);
+  if (normalized === "народы") {
+    return ["Название", "Бонусы", "Тип", "Размер", "Способности", "Пометка", "Описание"];
+  }
+  if (normalized === "классы") {
+    return ["Название", "Доступное оружие", "Сложность", "Описание"];
+  }
+  if (normalized === "государства") {
+    return ["Название", "Правитель", "Осн. население", "Идеология"];
+  }
+  if (normalized === "поселения") {
+    return ["Название", "Принадлежность", "Местоположение", "Заметки"];
+  }
+  return ["Запись"];
+}
+
+function parseLoreItemForTable(category, item) {
+  const columns = getLoreTableSchema(category);
+  if (columns.length === 1 && columns[0] === "Запись") {
+    return { Запись: String(item || "").trim() };
+  }
+  const normalized = normalizedLoreCategory(category);
+  if (normalized === "народы") {
+    const parsed = parseLabeledLoreRecord(item, columns);
+    if (parsed) return parsed;
+    const fallback = parseLoreRecord(item);
+    if (!fallback) return Object.fromEntries(columns.map((column) => [column, ""]));
+    return {
+      Название: fallback.name || "",
+      Бонусы: fallback.bonus || "",
+      Тип: fallback.type || "",
+      Размер: fallback.size || "",
+      Способности: fallback.abilities || "",
+      Пометка: fallback.note || "",
+      Описание: fallback.description || ""
+    };
+  }
+  return parseLabeledLoreRecord(item, columns) || Object.fromEntries(columns.map((column) => [column, ""]));
+}
+
+function buildLoreItemFromTable(category, row) {
+  const columns = getLoreTableSchema(category);
+  if (columns.length === 1 && columns[0] === "Запись") {
+    return String(row.Запись || "").trim();
+  }
+  return columns
+    .map((column) => {
+      const value = String(row[column] || "").trim();
+      return value ? `${column}: ${value}` : "";
+    })
+    .filter(Boolean)
+    .join(". ");
+}
+
+function createEmptyLoreTableRow(category) {
+  return Object.fromEntries(getLoreTableSchema(category).map((column) => [column, ""]));
+}
+
+function collectLoreTableRows() {
+  if (!loreTableBody) return [];
+  return Array.from(loreTableBody.querySelectorAll("tr[data-row-index]"))
+    .map((row) => {
+      const result = {};
+      Array.from(row.querySelectorAll("[data-column]")).forEach((field) => {
+        result[field.dataset.column] = field.value;
+      });
+      return result;
+    })
+    .filter((row) => Object.values(row).some((value) => String(value || "").trim()));
+}
+
+function renderLoreTableRows(category, rows) {
+  if (!loreTableHead || !loreTableBody) return;
+  const columns = getLoreTableSchema(category);
+  loreTableHead.innerHTML = `<tr>${columns
+    .map((column) => `<th>${escapeHtml(column)}</th>`)
+    .join("")}<th class="lore-table__actions">Действие</th></tr>`;
+  loreTableBody.innerHTML = rows
+    .map((row, index) => {
+      const cells = columns
+        .map((column) => {
+          const value = String(row[column] || "");
+          const multiline = value.length > 90 || column === "Описание" || column === "Заметки" || column === "Способности";
+          return `<td>${
+            multiline
+              ? `<textarea data-column="${escapeHtml(column)}" rows="3" placeholder="${escapeHtml(column)}">${escapeHtml(value)}</textarea>`
+              : `<input data-column="${escapeHtml(column)}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(column)}">`
+          }</td>`;
+        })
+        .join("");
+      return `<tr data-row-index="${index}">${cells}<td class="lore-table__actions"><button class="ghost-btn ghost-btn--small" data-action="remove-lore-row" data-row-index="${index}" type="button">Убрать</button></td></tr>`;
+    })
+    .join("");
 }
 
 function loreFieldClass(category, label) {
@@ -932,9 +1040,27 @@ function populateLoreEditor(id) {
 }
 
 function renderLoreComposer() {
-  if (loreQuickForm) loreQuickForm.classList.toggle("is-hidden", !isDm());
+  const useTableEditor = isDm() && desktopDmQuery.matches;
+  if (loreQuickForm) loreQuickForm.classList.toggle("is-hidden", !isDm() || useTableEditor);
+  if (loreTableForm) loreTableForm.classList.toggle("is-hidden", !useTableEditor);
   if (!isDm()) return;
   populateLoreEditor(state.selectedLoreId);
+  populateLoreTableEditor(state.selectedLoreId);
+}
+
+function populateLoreTableEditor(id) {
+  if (!loreTableForm) return;
+  const entry = db.lore.find((item) => item.id === id);
+  if (!entry) {
+    resetLoreTableForm();
+    return;
+  }
+  loreTableForm.elements.id.value = entry.id;
+  loreTableForm.elements.category.value = entry.category;
+  loreTableForm.elements.tone.value = loreTone(entry);
+  renderLoreTableRows(entry.category, entry.items.map((item) => parseLoreItemForTable(entry.category, item)));
+  if (loreTableEditorTitle) loreTableEditorTitle.textContent = `Таблица: ${entry.category}`;
+  if (loreTableEditorDelete) loreTableEditorDelete.disabled = false;
 }
 
 function renderJournal() {
@@ -1487,6 +1613,16 @@ function resetLoreForm() {
   if (loreEditorDelete) loreEditorDelete.disabled = true;
 }
 
+function resetLoreTableForm() {
+  if (!loreTableForm) return;
+  loreTableForm.reset();
+  loreTableForm.elements.id.value = "";
+  loreTableForm.elements.tone.value = "lore-tone--ember";
+  renderLoreTableRows("История", [createEmptyLoreTableRow("История")]);
+  if (loreTableEditorTitle) loreTableEditorTitle.textContent = "Таблица раздела";
+  if (loreTableEditorDelete) loreTableEditorDelete.disabled = true;
+}
+
 function populateUserForm(user) {
   userForm.elements.id.value = user.id;
   userForm.elements.username.value = user.username;
@@ -1680,6 +1816,7 @@ function startBestiaryCreate() {
 
 function startLoreCreate() {
   resetLoreForm();
+  resetLoreTableForm();
   loreQuickForm?.elements.category.focus();
 }
 
@@ -1913,6 +2050,32 @@ async function handleLoreQuickSubmit(event) {
   }
 }
 
+async function handleLoreTableSubmit(event) {
+  event.preventDefault();
+  const category = String(loreTableForm.elements.category.value || "").trim();
+  const rows = collectLoreTableRows();
+  const payload = {
+    id: String(loreTableForm.elements.id.value || "").trim(),
+    category,
+    tone: String(loreTableForm.elements.tone.value || "").trim() || "lore-tone--ember",
+    items: rows.map((row) => buildLoreItemFromTable(category, row)).filter(Boolean)
+  };
+  if (!payload.category || !payload.items.length) return;
+  try {
+    await api("/api/lore", { method: "POST", body: payload });
+    await loadBootstrap();
+    if (payload.id) {
+      state.selectedLoreId = payload.id;
+    } else {
+      const matched = db.lore.find((entry) => entry.category === payload.category);
+      state.selectedLoreId = matched?.id || db.lore[0]?.id || "";
+    }
+    refreshAll();
+  } catch (error) {
+    alert(error.message || "Не удалось сохранить раздел.");
+  }
+}
+
 async function handleMapFormSubmit(event) {
   event.preventDefault();
   const data = new FormData(mapForm);
@@ -2089,6 +2252,15 @@ function handleAdminAction(event) {
       image: getLoreRaceImage(button.dataset.name, button.dataset.type)
     });
   }
+
+  if (action === "remove-lore-row") {
+    const row = button.closest("tr");
+    if (row) row.remove();
+    if (!loreTableBody?.children.length) {
+      const category = String(loreTableForm?.elements.category.value || "История").trim() || "История";
+      renderLoreTableRows(category, [createEmptyLoreTableRow(category)]);
+    }
+  }
 }
 
 function bindEvents() {
@@ -2131,12 +2303,14 @@ function bindEvents() {
   characterForm.addEventListener("submit", handleCharacterFormSubmit);
   bestiaryForm?.addEventListener("submit", handleBestiaryFormSubmit);
   loreQuickForm?.addEventListener("submit", handleLoreQuickSubmit);
+  loreTableForm?.addEventListener("submit", handleLoreTableSubmit);
   mapForm.addEventListener("submit", handleMapFormSubmit);
 
   userFormReset.addEventListener("click", resetUserForm);
   characterFormReset.addEventListener("click", resetCharacterForm);
   bestiaryFormReset?.addEventListener("click", resetBestiaryForm);
   loreQuickReset?.addEventListener("click", () => populateLoreEditor(state.selectedLoreId));
+  loreTableReset?.addEventListener("click", () => populateLoreTableEditor(state.selectedLoreId));
 
   bestiaryEditorNew?.addEventListener("click", startBestiaryCreate);
   bestiaryEditorDelete?.addEventListener("click", () => {
@@ -2148,6 +2322,23 @@ function bindEvents() {
   loreEditorDelete?.addEventListener("click", () => {
     const idRaw = loreQuickForm?.elements.id.value || "";
     if (idRaw) removeLore(idRaw);
+  });
+  loreTableEditorNew?.addEventListener("click", startLoreCreate);
+  loreTableEditorDelete?.addEventListener("click", () => {
+    const idRaw = loreTableForm?.elements.id.value || "";
+    if (idRaw) removeLore(idRaw);
+  });
+  loreTableAddRow?.addEventListener("click", () => {
+    const category = String(loreTableForm?.elements.category.value || "История").trim() || "История";
+    const rows = collectLoreTableRows();
+    rows.push(createEmptyLoreTableRow(category));
+    renderLoreTableRows(category, rows);
+  });
+  loreTableForm?.elements.category?.addEventListener("change", () => {
+    const category = String(loreTableForm.elements.category.value || "История").trim() || "История";
+    const previousRows = collectLoreTableRows();
+    const nextRows = previousRows.length ? previousRows.map(() => createEmptyLoreTableRow(category)) : [createEmptyLoreTableRow(category)];
+    renderLoreTableRows(category, nextRows);
   });
 
   userList.addEventListener("click", handleAdminAction);

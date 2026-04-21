@@ -180,6 +180,46 @@
               <button class="ghost-btn" id="loreQuickReset" type="button">Сбросить</button>
             </div>
           </form>
+          <form class="lore-table-editor panel dm-only is-hidden" id="loreTableForm">
+            <input type="hidden" name="id" value="">
+            <div class="lore-editor__head">
+              <div>
+                <p class="lore-editor__eyebrow">Редактор DM</p>
+                <h4 id="loreTableEditorTitle">Таблица раздела</h4>
+              </div>
+              <div class="lore-editor__tools">
+                <button class="ghost-btn ghost-btn--small" id="loreTableEditorNew" type="button">Новый</button>
+                <button class="ghost-btn ghost-btn--small" id="loreTableEditorDelete" type="button">Удалить</button>
+              </div>
+            </div>
+            <div class="lore-table-editor__meta">
+              <label class="auth-field">
+                <span>Раздел</span>
+                <input type="text" name="category" placeholder="История">
+              </label>
+              <label class="auth-field">
+                <span>Цвет раздела</span>
+                <select name="tone">
+                  <option value="lore-tone--ember">Янтарный</option>
+                  <option value="lore-tone--sage">Шалфейный</option>
+                  <option value="lore-tone--steel">Стальной</option>
+                  <option value="lore-tone--rose">Пепельно-розовый</option>
+                  <option value="lore-tone--violet">Сумеречный</option>
+                </select>
+              </label>
+              <button class="ghost-btn ghost-btn--small lore-table-editor__add" id="loreTableAddRow" type="button">Добавить строку</button>
+            </div>
+            <div class="lore-table-editor__wrap">
+              <table class="lore-table">
+                <thead id="loreTableHead"></thead>
+                <tbody id="loreTableBody"></tbody>
+              </table>
+            </div>
+            <div class="journal-actions">
+              <button class="action-btn" type="submit">Сохранить раздел</button>
+              <button class="ghost-btn" id="loreTableReset" type="button">Сбросить</button>
+            </div>
+          </form>
           <div class="lore-reader" id="loreContent"></div>
         </article>
       </section>
