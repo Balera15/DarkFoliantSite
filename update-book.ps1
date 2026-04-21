@@ -15,10 +15,25 @@ function Invoke-Git {
     [string[]]$Arguments
   )
 
-  $output = & git @Arguments 2>&1
-  if ($LASTEXITCODE -ne 0) {
+  $previousNativeErrorPreference = $null
+  if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $previousNativeErrorPreference = $global:PSNativeCommandUseErrorActionPreference
+    $global:PSNativeCommandUseErrorActionPreference = $false
+  }
+
+  try {
+    $output = & git @Arguments 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    if ($null -ne $previousNativeErrorPreference) {
+      $global:PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
+    }
+  }
+
+  if ($exitCode -ne 0) {
     throw ("Git command failed: git {0}`n{1}" -f ($Arguments -join " "), ($output -join [Environment]::NewLine))
   }
+
   return ($output -join [Environment]::NewLine).Trim()
 }
 
@@ -38,7 +53,7 @@ if (-not $branch) {
 }
 
 Write-Host "Checking GitHub for updates on branch '$branch'..." -ForegroundColor Cyan
-Invoke-Git -Arguments @("fetch", "origin", $branch) | Out-Null
+Invoke-Git -Arguments @("fetch", "--quiet", "origin", $branch) | Out-Null
 
 $localRevision = Invoke-Git -Arguments @("rev-parse", "HEAD")
 $remoteRevision = Invoke-Git -Arguments @("rev-parse", "origin/$branch")
@@ -56,7 +71,7 @@ if (Test-Path $dbFile) {
 }
 
 & (Join-Path $projectRoot "stop-book.ps1")
-Invoke-Git -Arguments @("pull", "--ff-only", "origin", $branch) | Out-Null
+Invoke-Git -Arguments @("pull", "--ff-only", "--quiet", "origin", $branch) | Out-Null
 & (Join-Path $projectRoot "start-book.ps1") -Port $Port
 
 Write-Host "Ferelden book updated to latest GitHub version." -ForegroundColor Green
