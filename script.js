@@ -95,6 +95,42 @@ const loreToneClasses = [
   "lore-tone--violet"
 ];
 
+const translitMap = {
+  а: "a",
+  б: "b",
+  в: "v",
+  г: "g",
+  д: "d",
+  е: "e",
+  ё: "e",
+  ж: "zh",
+  з: "z",
+  и: "i",
+  й: "y",
+  к: "k",
+  л: "l",
+  м: "m",
+  н: "n",
+  о: "o",
+  п: "p",
+  р: "r",
+  с: "s",
+  т: "t",
+  у: "u",
+  ф: "f",
+  х: "h",
+  ц: "ts",
+  ч: "ch",
+  ш: "sh",
+  щ: "sch",
+  ъ: "",
+  ы: "y",
+  ь: "",
+  э: "e",
+  ю: "yu",
+  я: "ya"
+};
+
 const views = Array.from(document.querySelectorAll(".screen"));
 const navItems = Array.from(document.querySelectorAll(".nav-item"));
 const authScreen = document.getElementById("authScreen");
@@ -107,6 +143,8 @@ const roleBadge = document.getElementById("roleBadge");
 const currentUserLabel = document.getElementById("currentUserLabel");
 const accountSummary = document.getElementById("accountSummary");
 const settingsLogoutBtn = document.getElementById("settingsLogoutBtn");
+const gameToggleBtn = document.getElementById("gameToggleBtn");
+const gameStateLabel = document.getElementById("gameStateLabel");
 const bestiaryGrid = document.getElementById("bestiaryGrid");
 const searchInput = document.getElementById("creatureSearch");
 const filterButtons = Array.from(document.querySelectorAll("[data-filter]"));
@@ -117,12 +155,15 @@ const loreSearch = document.getElementById("loreSearch");
 const journalField = document.getElementById("sessionNotes");
 const saveNotesBtn = document.getElementById("saveNotes");
 const clearNotesBtn = document.getElementById("clearNotes");
+const journalUpdateToast = document.getElementById("journalUpdateToast");
+const characterRequestState = document.getElementById("characterRequestState");
 const characterView = document.getElementById("characterView");
 const dmScreen = document.querySelector('[data-view="dm"]');
 const userCharacterSelect = document.getElementById("userCharacterSelect");
 const characterOwnerSelect = document.getElementById("characterOwnerSelect");
 const userForm = document.getElementById("userForm");
 const characterForm = document.getElementById("characterForm");
+const characterFormSubmitBtn = characterForm?.querySelector('button[type="submit"]');
 const bestiaryForm = document.getElementById("bestiaryForm");
 const mapForm = document.getElementById("mapForm");
 const userFormReset = document.getElementById("userFormReset");
@@ -130,6 +171,7 @@ const characterFormReset = document.getElementById("characterFormReset");
 const bestiaryFormReset = document.getElementById("bestiaryFormReset");
 const userList = document.getElementById("userList");
 const characterList = document.getElementById("characterList");
+const characterRequestList = document.getElementById("characterRequestList");
 const bestiaryEditorTitle = document.getElementById("bestiaryEditorTitle");
 const bestiaryEditorNew = document.getElementById("bestiaryEditorNew");
 const bestiaryEditorDelete = document.getElementById("bestiaryEditorDelete");
@@ -138,23 +180,36 @@ const loreQuickReset = document.getElementById("loreQuickReset");
 const loreEditorTitle = document.getElementById("loreEditorTitle");
 const loreEditorNew = document.getElementById("loreEditorNew");
 const loreEditorDelete = document.getElementById("loreEditorDelete");
+const lorePanel = document.querySelector(".lore-panel");
 const mediaModal = document.getElementById("mediaModal");
 const mediaModalFrame = document.getElementById("mediaModalFrame");
 const mediaModalTitle = document.getElementById("mediaModalTitle");
 const mediaModalEyebrow = document.getElementById("mediaModalEyebrow");
 const mediaModalClose = document.getElementById("mediaModalClose");
+const raceImageManager = document.getElementById("raceImageManager");
+const raceImageInput = document.getElementById("raceImageInput");
+const raceImageSaveBtn = document.getElementById("raceImageSaveBtn");
+const raceImageResetBtn = document.getElementById("raceImageResetBtn");
+const raceImageHint = document.getElementById("raceImageHint");
 
 let db = {
   users: [],
   characters: [],
   bestiary: [],
   lore: [],
+  characterRequests: [],
+  raceImages: {},
+  game: { isActive: false },
   map: { ...themeDefaults.map },
   journal: themeDefaults.journal
 };
 let currentUser = null;
 let currentThemeId = localStorage.getItem(PREF_KEYS.theme) || "ember";
 let journalSaveTimer = null;
+let loreSearchAnchorTop = 0;
+let activeRacePreview = null;
+let runtimeSyncTimer = null;
+let runtimeSyncBusy = false;
 
 let state = {
   view: "bestiary",
@@ -195,6 +250,16 @@ function isDesktopDm() {
   return isDm() && desktopDmQuery.matches;
 }
 
+function isGameActive() {
+  return Boolean(db.game?.isActive);
+}
+
+function canPlayerActInSession(character) {
+  if (!currentUser || !character) return false;
+  if (isDm()) return true;
+  return isGameActive() && (character.id === currentUser.characterId || character.ownerUserId === currentUser.id);
+}
+
 function syncDesktopDmMode() {
   const desktopMode = isDesktopDm();
   document.documentElement.classList.toggle("dm-desktop-mode", desktopMode);
@@ -215,6 +280,60 @@ function splitLines(value) {
   return value
     .split("\n")
     .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function getPendingCharacterRequest() {
+  if (!currentUser || isDm()) return null;
+  return (
+    db.characterRequests.find(
+      (request) => request.userId === currentUser.id && String(request.status || "") === "pending"
+    ) || null
+  );
+}
+
+function getLoreEntryByCategory(category) {
+  const normalized = String(category || "").trim().toLowerCase();
+  return db.lore.find((entry) => String(entry.category || "").trim().toLowerCase() === normalized) || null;
+}
+
+function getAvailableRaceOptions() {
+  const loreEntry = getLoreEntryByCategory("народы");
+  if (!loreEntry) return [];
+  return loreEntry.items
+    .map((item) => {
+      const source = String(item || "").trim();
+      const parsed = parseLabeledLoreRecord(String(item || ""), [
+        "Название",
+        "Бонусы",
+        "Тип",
+        "Размер",
+        "Способности",
+        "Пометка",
+        "Описание"
+      ]);
+      if (parsed?.Название?.trim()) return parsed.Название.trim();
+      const fallbackMatch = source.match(/^(.+?)(?:\.\s+Бонусы:|:)/);
+      if (fallbackMatch?.[1]) return fallbackMatch[1].trim();
+      const firstSentence = source.split(".")[0]?.trim();
+      return firstSentence || "";
+    })
+    .filter(Boolean);
+}
+
+function getAvailableClassOptions() {
+  const loreEntry = getLoreEntryByCategory("классы");
+  if (!loreEntry) return [];
+  return loreEntry.items
+    .map((item) => {
+      const parsed = parseLabeledLoreRecord(String(item || ""), [
+        "Название",
+        "Доступное оружие",
+        "Сложность",
+        "Описание"
+      ]);
+      return parsed?.Название?.trim() || "";
+    })
     .filter(Boolean);
 }
 
@@ -290,6 +409,286 @@ function matchesLoreQuery(entry, query) {
   return haystack.includes(query);
 }
 
+function parseLoreRecord(text) {
+  const source = String(text || "").trim();
+  const labelPattern = /\.(?:\s+)(Бонусы|Тип|Описание|Способности|Пометка):\s*/g;
+  const firstLabelMatch = labelPattern.exec(source);
+  if (!firstLabelMatch) return null;
+
+  const name = source.slice(0, firstLabelMatch.index).trim().replace(/\.$/, "");
+  if (!name) return null;
+
+  const sections = [];
+  let currentLabel = firstLabelMatch[1];
+  let valueStart = labelPattern.lastIndex;
+  let nextMatch = labelPattern.exec(source);
+
+  while (currentLabel) {
+    const end = nextMatch ? nextMatch.index : source.length;
+    const value = source.slice(valueStart, end).trim().replace(/\.$/, "");
+    sections.push({ label: currentLabel, value });
+    if (!nextMatch) break;
+    currentLabel = nextMatch[1];
+    valueStart = labelPattern.lastIndex;
+    nextMatch = labelPattern.exec(source);
+  }
+
+  const mapped = Object.fromEntries(sections.map((section) => [section.label, section.value]));
+  const description = mapped["Описание"] || "";
+  const sizeMatch = description.match(/Размер\s+[^.]+/i);
+  const size = sizeMatch ? sizeMatch[0].replace(/^Размер\s+/i, "").trim() : "";
+  const trimmedDescription = sizeMatch
+    ? description.replace(sizeMatch[0], "").replace(/\s+\.$/, ".").trim().replace(/\.$/, "")
+    : description;
+
+  return {
+    name,
+    bonus: mapped["Бонусы"] || "",
+    type: mapped["Тип"] || "",
+    description: trimmedDescription,
+    size,
+    abilities: mapped["Способности"] || "",
+    note: mapped["Пометка"] || ""
+  };
+}
+
+function parseLabeledLoreRecord(text, labels) {
+  const source = String(text || "").trim();
+  const labelPattern = new RegExp(`(?:^|\\.\\s+)(${labels.join("|")}):\\s*`, "g");
+  const firstLabelMatch = labelPattern.exec(source);
+  if (!firstLabelMatch) return null;
+
+  const sections = [];
+  let currentLabel = firstLabelMatch[1];
+  let valueStart = labelPattern.lastIndex;
+  let nextMatch = labelPattern.exec(source);
+
+  while (currentLabel) {
+    const end = nextMatch ? nextMatch.index : source.length;
+    const value = source.slice(valueStart, end).trim().replace(/\.$/, "");
+    sections.push({ label: currentLabel, value });
+    if (!nextMatch) break;
+    currentLabel = nextMatch[1];
+    valueStart = labelPattern.lastIndex;
+    nextMatch = labelPattern.exec(source);
+  }
+
+  return Object.fromEntries(sections.map((section) => [section.label, section.value]));
+}
+
+function loreFieldClass(category, label) {
+  const normalizedCategory = String(category || "").trim().toLowerCase();
+  const normalizedLabel = String(label || "").trim().toLowerCase();
+
+  if (normalizedCategory === "классы") {
+    if (normalizedLabel === "название") return "lore-field--name";
+    if (normalizedLabel === "доступное оружие") return "lore-field--weapon";
+    if (normalizedLabel === "сложность") return "lore-field--difficulty";
+    if (normalizedLabel === "описание") return "lore-field--notes";
+  }
+
+  if (normalizedCategory === "государства") {
+    if (normalizedLabel === "название") return "lore-field--name";
+    if (normalizedLabel === "правитель") return "lore-field--ruler";
+    if (normalizedLabel === "осн. население") return "lore-field--people";
+    if (normalizedLabel === "идеология") return "lore-field--ideology";
+  }
+
+  if (normalizedCategory === "поселения") {
+    if (normalizedLabel === "название") return "lore-field--name";
+    if (normalizedLabel === "принадлежность") return "lore-field--domain";
+    if (normalizedLabel === "местоположение") return "lore-field--location";
+    if (normalizedLabel === "заметки") return "lore-field--notes";
+  }
+
+  return "";
+}
+
+function renderStructuredLoreItem(category, item) {
+  const normalizedCategory = String(category || "").trim().toLowerCase();
+  if (!["государства", "поселения", "классы"].includes(normalizedCategory)) return null;
+
+  const labels =
+    normalizedCategory === "государства"
+      ? ["Название", "Правитель", "Осн\\. население", "Идеология"]
+      : normalizedCategory === "поселения"
+        ? ["Название", "Принадлежность", "Местоположение", "Заметки"]
+        : ["Название", "Доступное оружие", "Сложность", "Описание"];
+
+  const mapped = parseLabeledLoreRecord(item, labels);
+  if (!mapped) return null;
+
+  const title = mapped["Название"] || "Без названия";
+  const orderedLabels =
+    normalizedCategory === "государства"
+      ? ["Правитель", "Осн. население", "Идеология"]
+      : normalizedCategory === "поселения"
+        ? ["Принадлежность", "Местоположение", "Заметки"]
+        : ["Доступное оружие", "Сложность", "Описание"];
+
+  return `<div class="lore-record lore-record--structured">
+    <h4 class="lore-record__title">${escapeHtml(title)}</h4>
+    <div class="lore-record__facts">
+      ${orderedLabels
+        .filter((label) => mapped[label])
+        .map(
+          (label) => `<p class="lore-field ${loreFieldClass(category, label)}${normalizedCategory === "классы" && label === "Сложность" ? ` ${loreClassDifficultyClass(mapped[label])}` : ""}">
+            <span class="lore-key">${escapeHtml(label)}</span>
+            <span>${escapeHtml(mapped[label])}</span>
+          </p>`
+        )
+        .join("")}
+    </div>
+  </div>`;
+}
+
+function loreClassDifficultyClass(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "легко") return "lore-difficulty--easy";
+  if (normalized === "средне") return "lore-difficulty--medium";
+  if (normalized === "сложно") return "lore-difficulty--hard";
+  return "lore-difficulty--default";
+}
+
+function renderLoreItem(item, category) {
+  const structured = renderStructuredLoreItem(category, item);
+  if (structured) return structured;
+
+  const parsed = parseLoreRecord(item);
+  if (!parsed) return `<p>${escapeHtml(item)}</p>`;
+  const typeClass = parsed.type ? ` lore-field--type ${loreTypeClass(parsed.type)}` : "";
+
+  const rows = [
+    parsed.bonus ? ["Бонусы", parsed.bonus] : null,
+    parsed.type ? ["Тип", parsed.type] : null,
+    parsed.size ? ["Размер", parsed.size] : null,
+    parsed.abilities ? ["Способности", parsed.abilities] : null,
+    parsed.note ? ["Пометка", parsed.note] : null
+  ].filter(Boolean);
+
+  return `<div class="lore-record">
+    <div class="lore-record__head">
+      <h4 class="lore-record__title">${escapeHtml(parsed.name)}</h4>
+      ${
+        String(category || "").trim().toLowerCase() === "народы"
+          ? `<button
+              class="tiny-btn lore-record__media"
+              data-action="preview-lore-race"
+              data-name="${escapeHtml(parsed.name)}"
+              data-type="${escapeHtml(parsed.type)}"
+              type="button"
+            >Тварь</button>`
+          : ""
+      }
+    </div>
+    ${
+      rows.length
+        ? `<div class="lore-record__facts">
+            ${rows
+              .map(
+                ([label, value]) => `<p class="lore-field${label === "Тип" ? typeClass : ""}">
+                  <span class="lore-key">${escapeHtml(label)}</span>
+                  <span>${escapeHtml(value)}</span>
+                </p>`
+              )
+              .join("")}
+          </div>`
+        : ""
+    }
+    ${
+      parsed.description
+        ? `<p class="lore-record__description">
+            <span class="lore-key">Описание</span>
+            <span>${escapeHtml(parsed.description)}</span>
+          </p>`
+        : ""
+    }
+  </div>`;
+}
+
+function loreTypeClass(type) {
+  const normalized = String(type || "").trim().toLowerCase();
+  if (normalized === "гуманоид") return "lore-type--humanoid";
+  if (normalized === "фея") return "lore-type--fey";
+  if (normalized === "слизь") return "lore-type--ooze";
+  if (normalized === "нежить") return "lore-type--undead";
+  if (normalized === "монстр") return "lore-type--monster";
+  if (normalized === "механизм") return "lore-type--construct";
+  return "lore-type--default";
+}
+
+function loreTypePalette(type) {
+  const normalized = String(type || "").trim().toLowerCase();
+  if (normalized === "гуманоид") {
+    return { accent: "#d1a45e", accentSoft: "#5c4528", bg1: "#201913", bg2: "#100d0b", sigil: "I" };
+  }
+  if (normalized === "фея") {
+    return { accent: "#86d6b1", accentSoft: "#20443b", bg1: "#11211d", bg2: "#091210", sigil: "✦" };
+  }
+  if (normalized === "слизь") {
+    return { accent: "#73d5c3", accentSoft: "#1d4942", bg1: "#10211e", bg2: "#091210", sigil: "◉" };
+  }
+  if (normalized === "нежить") {
+    return { accent: "#b18cff", accentSoft: "#352353", bg1: "#17111f", bg2: "#0c0912", sigil: "☠" };
+  }
+  if (normalized === "монстр") {
+    return { accent: "#e07f64", accentSoft: "#5c2d23", bg1: "#23130f", bg2: "#120907", sigil: "✧" };
+  }
+  if (normalized === "механизм") {
+    return { accent: "#8fb8d8", accentSoft: "#274257", bg1: "#101920", bg2: "#090d12", sigil: "⚙" };
+  }
+  return { accent: "#d8bb86", accentSoft: "#5f4b2e", bg1: "#1e1711", bg2: "#100d0b", sigil: "◇" };
+}
+
+function buildLoreRaceImage(name, type) {
+  const palette = loreTypePalette(type);
+  const safeName = String(name || "").trim() || "Неизвестная тварь";
+  const safeType = String(type || "").trim() || "Народ";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${palette.bg1}"/>
+          <stop offset="100%" stop-color="${palette.bg2}"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="50%" cy="32%" r="54%">
+          <stop offset="0%" stop-color="${palette.accent}" stop-opacity="0.34"/>
+          <stop offset="100%" stop-color="${palette.accent}" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="1200" height="1200" rx="84" fill="url(#bg)"/>
+      <rect x="36" y="36" width="1128" height="1128" rx="64" fill="none" stroke="${palette.accentSoft}" stroke-width="4"/>
+      <rect x="68" y="68" width="1064" height="1064" rx="48" fill="none" stroke="${palette.accent}" stroke-opacity="0.28" stroke-width="3"/>
+      <circle cx="600" cy="390" r="250" fill="url(#glow)"/>
+      <circle cx="600" cy="390" r="188" fill="none" stroke="${palette.accent}" stroke-opacity="0.32" stroke-width="12"/>
+      <circle cx="600" cy="390" r="128" fill="none" stroke="${palette.accent}" stroke-opacity="0.56" stroke-width="8"/>
+      <text x="600" y="430" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="188" fill="${palette.accent}">${palette.sigil}</text>
+      <text x="600" y="760" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="700" fill="#f6ead9">${escapeHtml(safeName)}</text>
+      <rect x="410" y="818" width="380" height="68" rx="34" fill="${palette.accentSoft}" stroke="${palette.accent}" stroke-opacity="0.45"/>
+      <text x="600" y="863" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="34" letter-spacing="4" fill="${palette.accent}">${escapeHtml(safeType.toUpperCase())}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function slugifyRaceName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .split("")
+    .map((char) => translitMap[char] ?? char)
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-");
+}
+
+function getLoreRaceImage(name, type) {
+  const slug = slugifyRaceName(name);
+  if (slug && db.raceImages?.[slug]) return db.raceImages[slug];
+  return slug ? `assets/races/${slug}.svg` : buildLoreRaceImage(name, type);
+}
+
 function setView(view) {
   if (view === "dm" && !isDm()) return;
   state.view = view;
@@ -299,6 +698,17 @@ function setView(view) {
   navItems.forEach((button) =>
     button.classList.toggle("is-active", button.dataset.target === view)
   );
+  if (view === "journal") hideJournalUpdateToast();
+  updateFloatingLoreSearch();
+}
+
+function showJournalUpdateToast() {
+  if (!journalUpdateToast || state.view === "journal") return;
+  journalUpdateToast.classList.remove("is-hidden");
+}
+
+function hideJournalUpdateToast() {
+  journalUpdateToast?.classList.add("is-hidden");
 }
 
 function applyTheme(themeId) {
@@ -363,6 +773,12 @@ function normalizeIncomingDb(incoming) {
     characters: Array.isArray(incoming?.characters) ? incoming.characters : [],
     bestiary: Array.isArray(incoming?.bestiary) ? incoming.bestiary : [],
     lore: Array.isArray(incoming?.lore) ? incoming.lore : [],
+    characterRequests: Array.isArray(incoming?.characterRequests) ? incoming.characterRequests : [],
+    raceImages: incoming?.raceImages && typeof incoming.raceImages === "object" ? incoming.raceImages : {},
+    game:
+      incoming?.game && typeof incoming.game === "object"
+        ? { isActive: Boolean(incoming.game.isActive) }
+        : { isActive: false },
     map: incoming?.map && typeof incoming.map === "object" ? incoming.map : { ...themeDefaults.map },
     journal: typeof incoming?.journal === "string" ? incoming.journal : themeDefaults.journal
   };
@@ -490,7 +906,7 @@ function renderLore() {
         .map(
           (item, entryIndex) => `<section class="lore-entry">
             <span class="lore-entry__index">${String(entryIndex + 1).padStart(2, "0")}</span>
-            <p>${escapeHtml(item)}</p>
+            ${renderLoreItem(item, activeEntry.category)}
           </section>`
         )
         .join("")}
@@ -523,6 +939,16 @@ function renderLoreComposer() {
 
 function renderJournal() {
   journalField.value = db.journal || "";
+  const editable = isDm();
+  journalField.readOnly = !editable;
+  journalField.disabled = false;
+  journalField.classList.toggle("is-readonly", !editable);
+  if (saveNotesBtn) saveNotesBtn.classList.toggle("is-hidden", !editable);
+  if (clearNotesBtn) clearNotesBtn.classList.toggle("is-hidden", !editable);
+  journalField.placeholder = editable
+    ? "Кто пришёл на совет? Какие улики нашли? Что случилось у костра?"
+    : "Только DM может редактировать журнал сессии.";
+  if (state.view === "journal") hideJournalUpdateToast();
 }
 
 function renderAccountSummary() {
@@ -532,8 +958,8 @@ function renderAccountSummary() {
   }
   accountSummary.textContent =
     currentUser.role === "dm"
-      ? `Вы вошли как DM: ${currentUser.displayName}. Вам доступно управление игроками, персонажами и содержимым книги.`
-      : `Вы вошли как игрок: ${currentUser.displayName}. Вам доступен мир книги и назначенный персонаж.`;
+      ? `Вы вошли как DM: ${currentUser.displayName}. Вам доступно управление игроками, персонажами и содержимым книги. Игра сейчас ${isGameActive() ? "запущена" : "не запущена"}.`
+      : `Вы вошли как игрок: ${currentUser.displayName}. Вам доступен мир книги и назначенный персонаж. ${isGameActive() ? "Сессия активна: можно менять HP, броню и инвентарь." : "Сессия ещё не запущена DM."}`;
 }
 
 function renderMap() {
@@ -555,25 +981,29 @@ function resolveActiveCharacter() {
     }
     return resolved;
   }
-  return db.characters.find((character) => character.id === (currentUser?.characterId || "")) || null;
+  return (
+    db.characters.find(
+      (character) =>
+        character.id === (currentUser?.characterId || "") || character.ownerUserId === currentUser?.id
+    ) || db.characters[0] || null
+  );
 }
 
-function renderCharacterView() {
-  const character = resolveActiveCharacter();
-  if (!character) {
-    characterView.innerHTML = `<article class="panel"><p class="admin-empty">Для этого аккаунта пока не назначен персонаж. DM может выдать карточку в управлении.</p></article>`;
-    return;
-  }
-
-  const preview = isDm()
+function renderCharacterCard(character, options = {}) {
+  const { showPreviewSelector = false, compact = false } = options;
+  const image = safeMediaUrl(character.image);
+  const playerCanAct = canPlayerActInSession(character);
+  const inventoryValue = (character.inventory || []).join("\n");
+  const owner = db.users.find((entry) => entry.id === character.ownerUserId);
+  const ownerMeta = isDm() && owner ? `<div class="sheet-owner">Игрок: ${escapeHtml(owner.displayName)}</div>` : "";
+  const preview = showPreviewSelector
     ? `<div class="character-preview-head"><span class="hero__role">Просмотр</span><select id="characterPreviewSelect">${db.characters
         .map(
           (entry) =>
             `<option value="${entry.id}" ${entry.id === character.id ? "selected" : ""}>${escapeHtml(entry.name)}</option>`
         )
         .join("")}</select></div>`
-    : "";
-  const image = safeMediaUrl(character.image);
+    : ownerMeta;
   const portrait = image
     ? `<button class="sheet-portrait" type="button" data-action="preview-character-portrait" data-id="${character.id}">
         <img src="${escapeHtml(image)}" alt="${escapeHtml(character.name)}">
@@ -583,9 +1013,9 @@ function renderCharacterView() {
         <strong>${escapeHtml(character.name)}</strong>
       </div>`;
 
-  characterView.innerHTML = `<div class="character-view">
+  return `<div class="character-card-shell${compact ? " character-card-shell--compact" : ""}">
     ${preview}
-    <article class="panel character-sheet character-sheet--sheet">
+    <article class="panel character-sheet character-sheet--sheet" data-character-card="${character.id}">
       <div class="sheet-hero">
         ${portrait}
       </div>
@@ -593,23 +1023,31 @@ function renderCharacterView() {
         <div class="sheet-field sheet-field--label">Имя:</div>
         <div class="sheet-field sheet-field--value">${escapeHtml(character.name)}</div>
         <div class="sheet-field sheet-field--label">Здоровье:</div>
-        <div class="sheet-field sheet-field--value sheet-field--right sheet-field--health">${character.health}</div>
+        <div class="sheet-field sheet-field--value sheet-field--right sheet-field--value-control sheet-field--health">
+          ${playerCanAct ? `<button class="sheet-adjust sheet-adjust--minus" type="button" data-action="adjust-character" data-stat="health" data-delta="-1" aria-label="Убавить здоровье">-</button>` : ""}
+          <span class="sheet-value-number">${character.health}</span>
+          ${playerCanAct ? `<button class="sheet-adjust sheet-adjust--plus" type="button" data-action="adjust-character" data-stat="health" data-delta="1" aria-label="Прибавить здоровье">+</button>` : ""}
+        </div>
       </div>
       <div class="sheet-strip">
         <div class="sheet-field sheet-field--label">Броня:</div>
-        <div class="sheet-field sheet-field--value sheet-field--right sheet-field--armor">${character.armor}</div>
+        <div class="sheet-field sheet-field--value sheet-field--right sheet-field--value-control sheet-field--armor">
+          ${playerCanAct ? `<button class="sheet-adjust sheet-adjust--minus" type="button" data-action="adjust-character" data-stat="armor" data-delta="-1" aria-label="Убавить броню">-</button>` : ""}
+          <span class="sheet-value-number">${character.armor}</span>
+          ${playerCanAct ? `<button class="sheet-adjust sheet-adjust--plus" type="button" data-action="adjust-character" data-stat="armor" data-delta="1" aria-label="Прибавить броню">+</button>` : ""}
+        </div>
         <div class="sheet-field sheet-field--label">Раса:</div>
         <div class="sheet-field sheet-field--value">${escapeHtml(character.race)}</div>
         <div class="sheet-field sheet-field--label">Класс:</div>
         <div class="sheet-field sheet-field--value">${escapeHtml(character.className)}</div>
       </div>
       <div class="sheet-stats">
-        <div class="stat-cell"><span>СИЛА</span><strong>${character.stats.strength}</strong><em>(${mod(character.stats.strength) >= 0 ? "+" : ""}${mod(character.stats.strength)})</em></div>
-        <div class="stat-cell"><span>ЛОВКОСТЬ</span><strong>${character.stats.dexterity}</strong><em>(${mod(character.stats.dexterity) >= 0 ? "+" : ""}${mod(character.stats.dexterity)})</em></div>
-        <div class="stat-cell"><span>ВЫНОСЛИВОСТЬ</span><strong>${character.stats.constitution}</strong><em>(${mod(character.stats.constitution) >= 0 ? "+" : ""}${mod(character.stats.constitution)})</em></div>
-        <div class="stat-cell"><span>МУДРОСТЬ</span><strong>${character.stats.wisdom}</strong><em>(${mod(character.stats.wisdom) >= 0 ? "+" : ""}${mod(character.stats.wisdom)})</em></div>
-        <div class="stat-cell"><span>ИНТЕЛЛЕКТ</span><strong>${character.stats.intelligence}</strong><em>(${mod(character.stats.intelligence) >= 0 ? "+" : ""}${mod(character.stats.intelligence)})</em></div>
-        <div class="stat-cell"><span>ХАРИЗМА</span><strong>${character.stats.charisma}</strong><em>(${mod(character.stats.charisma) >= 0 ? "+" : ""}${mod(character.stats.charisma)})</em></div>
+        <div class="stat-cell"><span>СИЛА</span><em>(${mod(character.stats.strength) >= 0 ? "+" : ""}${mod(character.stats.strength)})</em><strong>${character.stats.strength}</strong></div>
+        <div class="stat-cell"><span>ЛОВКОСТЬ</span><em>(${mod(character.stats.dexterity) >= 0 ? "+" : ""}${mod(character.stats.dexterity)})</em><strong>${character.stats.dexterity}</strong></div>
+        <div class="stat-cell"><span>ВЫНОСЛИВОСТЬ</span><em>(${mod(character.stats.constitution) >= 0 ? "+" : ""}${mod(character.stats.constitution)})</em><strong>${character.stats.constitution}</strong></div>
+        <div class="stat-cell"><span>МУДРОСТЬ</span><em>(${mod(character.stats.wisdom) >= 0 ? "+" : ""}${mod(character.stats.wisdom)})</em><strong>${character.stats.wisdom}</strong></div>
+        <div class="stat-cell"><span>ИНТЕЛЛЕКТ</span><em>(${mod(character.stats.intelligence) >= 0 ? "+" : ""}${mod(character.stats.intelligence)})</em><strong>${character.stats.intelligence}</strong></div>
+        <div class="stat-cell"><span>ХАРИЗМА</span><em>(${mod(character.stats.charisma) >= 0 ? "+" : ""}${mod(character.stats.charisma)})</em><strong>${character.stats.charisma}</strong></div>
       </div>
       <div class="sheet-section">
         <div class="sheet-section__title">Владение оружием:</div>
@@ -621,7 +1059,16 @@ function renderCharacterView() {
       </div>
       <div class="sheet-section">
         <div class="sheet-section__title">Инвентарь:</div>
-        <div class="sheet-section__body sheet-section__body--dense">${(character.inventory || []).map((item) => `<p>${escapeHtml(item)};</p>`).join("")}</div>
+        ${
+          playerCanAct && !isDm()
+            ? `<label class="sheet-section__editor">
+                <textarea id="characterInventoryEditor" class="sheet-section__textarea" rows="7" placeholder="Каждая строка — отдельный предмет">${escapeHtml(inventoryValue)}</textarea>
+              </label>
+              <div class="journal-actions journal-actions--compact">
+                <button class="action-btn" data-action="save-character-inventory" data-id="${character.id}" type="button">Сохранить инвентарь</button>
+              </div>`
+            : `<div class="sheet-section__body sheet-section__body--dense">${(character.inventory || []).map((item) => `<p>${escapeHtml(item)};</p>`).join("")}</div>`
+        }
       </div>
       <div class="sheet-section">
         <div class="sheet-section__title">Описание:</div>
@@ -629,22 +1076,199 @@ function renderCharacterView() {
       </div>
     </article>
   </div>`;
+}
 
-  if (isDm()) {
-    document.getElementById("characterPreviewSelect")?.addEventListener("change", (event) => {
+function bindCharacterViewActions(root = characterView) {
+  root.querySelectorAll("#characterPreviewSelect").forEach((select) => {
+    select.addEventListener("change", (event) => {
       state.selectedCharacterId = event.target.value;
       saveUiState();
       renderCharacterView();
     });
-  }
+  });
 
-  characterView.querySelector('[data-action="preview-character-portrait"]')?.addEventListener("click", () => {
-    openMediaModal({
-      eyebrow: "Портрет персонажа",
-      title: character.name,
-      image: character.image
+  root.querySelectorAll('[data-action="preview-character-portrait"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const character = db.characters.find((entry) => entry.id === button.dataset.id);
+      if (!character) return;
+      openMediaModal({
+        eyebrow: "Портрет персонажа",
+        title: character.name,
+        image: character.image
+      });
     });
   });
+
+  root.querySelectorAll('[data-action="adjust-character"]').forEach((button) => {
+    button.addEventListener("click", async () => {
+      const characterId = button.closest("[data-character-card]")?.dataset.characterCard;
+      const stat = button.dataset.stat;
+      const delta = Number(button.dataset.delta || 0);
+      if (!characterId || !stat || !Number.isFinite(delta)) return;
+      try {
+        await updateCharacterRuntime(characterId, {
+          healthDelta: stat === "health" ? delta : 0,
+          armorDelta: stat === "armor" ? delta : 0
+        });
+      } catch (error) {
+        alert(error.message || "Не удалось обновить значение.");
+      }
+    });
+  });
+
+  root.querySelectorAll('[data-action="save-character-inventory"]').forEach((button) => {
+    button.addEventListener("click", async () => {
+      const characterId = button.dataset.id;
+      const editor = root.querySelector(`#characterInventoryEditor-${characterId}`);
+      if (!editor) return;
+      try {
+        await updateCharacterRuntime(characterId, {
+          inventory: splitLines(editor.value)
+        });
+      } catch (error) {
+        alert(error.message || "Не удалось сохранить инвентарь.");
+      }
+    });
+  });
+}
+
+function renderCharacterView() {
+  const character = resolveActiveCharacter();
+  renderCharacterRequestState();
+  if (!character && !isDm()) {
+    const pendingRequest = getPendingCharacterRequest();
+    characterView.innerHTML = pendingRequest
+      ? ""
+      : `<article class="panel"><p class="admin-empty">У этого игрока пока нет подтверждённого персонажа. Заполни заявку выше, и мастер доведёт героя до полноценной карточки.</p></article>`;
+    return;
+  }
+
+  if (isDesktopDm()) {
+    characterView.innerHTML = `<div class="character-view character-view--grid">${db.characters
+      .map((entry) => renderCharacterCard(entry, { compact: true }))
+      .join("")}</div>`;
+    bindCharacterViewActions(characterView);
+    return;
+  }
+
+  characterView.innerHTML = `<div class="character-view">
+    ${renderCharacterCard(character, { showPreviewSelector: isDm() })}
+  </div>`;
+
+  const playerEditor = characterView.querySelector("#characterInventoryEditor");
+  if (playerEditor) {
+    playerEditor.id = `characterInventoryEditor-${character.id}`;
+  }
+  bindCharacterViewActions(characterView);
+}
+
+async function updateCharacterRuntime(characterId, patch) {
+  await api(`/api/characters/${encodeURIComponent(characterId)}`, {
+    method: "PATCH",
+    body: patch
+  });
+  await loadBootstrap();
+  refreshAll();
+}
+
+async function toggleGameState() {
+  if (!isDm()) return;
+  try {
+    await api("/api/game", {
+      method: "PUT",
+      body: { isActive: !isGameActive() }
+    });
+    await loadBootstrap();
+    refreshAll();
+  } catch (error) {
+    alert(error.message || "Не удалось переключить состояние игры.");
+  }
+}
+
+function stopRuntimeSync() {
+  if (runtimeSyncTimer) {
+    window.clearInterval(runtimeSyncTimer);
+    runtimeSyncTimer = null;
+  }
+}
+
+function shouldSkipRuntimeCharacterRefresh() {
+  const active = document.activeElement;
+  return Boolean(active && active instanceof HTMLElement && active.matches(".sheet-section__textarea"));
+}
+
+function shouldSkipRuntimeJournalRefresh() {
+  const active = document.activeElement;
+  return Boolean(isDm() && active === journalField);
+}
+
+async function syncRuntimeState() {
+  if (!currentUser || runtimeSyncBusy) return;
+  runtimeSyncBusy = true;
+  try {
+    const runtime = await api("/api/runtime");
+    const nextCharacters = Array.isArray(runtime?.characters) ? runtime.characters : [];
+    const nextCharacterRequests = Array.isArray(runtime?.characterRequests) ? runtime.characterRequests : [];
+    const nextGame = runtime?.game && typeof runtime.game === "object"
+      ? { isActive: Boolean(runtime.game.isActive) }
+      : { isActive: false };
+    const nextJournal = typeof runtime?.journal === "string" ? runtime.journal : "";
+
+    const charactersChanged = JSON.stringify(db.characters) !== JSON.stringify(nextCharacters);
+    const requestsChanged =
+      JSON.stringify(db.characterRequests) !== JSON.stringify(nextCharacterRequests);
+    const gameChanged = JSON.stringify(db.game) !== JSON.stringify(nextGame);
+    const journalChanged = db.journal !== nextJournal;
+    if (!charactersChanged && !requestsChanged && !gameChanged && !journalChanged) return;
+
+    db.characters = nextCharacters;
+    db.characterRequests = nextCharacterRequests;
+    db.game = nextGame;
+    db.journal = nextJournal;
+
+    if (gameStateLabel) {
+      gameStateLabel.textContent = isGameActive() ? "Сессия активна" : "Сессия не запущена";
+    }
+    if (gameToggleBtn) {
+      gameToggleBtn.textContent = isGameActive() ? "Завершить игру" : "Начать игру";
+    }
+    renderAccountSummary();
+
+    if (journalChanged && !shouldSkipRuntimeJournalRefresh()) {
+      renderJournal();
+    } else if (journalChanged) {
+      showJournalUpdateToast();
+    }
+
+    if (journalChanged && state.view !== "journal") {
+      showJournalUpdateToast();
+    }
+
+    if ((charactersChanged || requestsChanged || gameChanged) && !shouldSkipRuntimeCharacterRefresh()) {
+      renderCharacterView();
+    }
+
+    if (requestsChanged && isDm()) {
+      renderAdminPanels();
+    }
+  } catch (error) {
+    if (error?.status === 401) {
+      stopRuntimeSync();
+    }
+  } finally {
+    runtimeSyncBusy = false;
+  }
+}
+
+function ensureRuntimeSync() {
+  if (!currentUser) {
+    stopRuntimeSync();
+    return;
+  }
+  if (runtimeSyncTimer) return;
+  runtimeSyncTimer = window.setInterval(() => {
+    syncRuntimeState();
+  }, 2000);
 }
 
 function renderAdminSelects() {
@@ -708,6 +1332,111 @@ function renderCharacterList() {
     .join("");
 }
 
+function renderCharacterRequestList() {
+  if (!characterRequestList) return;
+  const requests = (db.characterRequests || []).filter(
+    (request) => String(request.status || "") === "pending"
+  );
+
+  if (!requests.length) {
+    characterRequestList.innerHTML = `<div class="admin-item"><p class="admin-empty">Пока нет новых заявок на персонажей.</p></div>`;
+    return;
+  }
+
+  characterRequestList.innerHTML = requests
+    .map(
+      (request) => `<div class="admin-item admin-item--request">
+        <div class="admin-item__top">
+          <div>
+            <strong>${escapeHtml(request.name)}</strong>
+            <div class="admin-item__meta">${escapeHtml(request.displayName || request.username)} · ${escapeHtml(request.className)} · ${escapeHtml(request.race)}</div>
+          </div>
+          <span class="admin-request-badge">Ожидает</span>
+        </div>
+        <p class="admin-request__lead"><strong>Игрок:</strong> ${escapeHtml(request.displayName || request.username)}</p>
+        <p class="admin-request__lead"><strong>Описание:</strong> ${escapeHtml(request.description || "Игрок пока ничего не написал.")}</p>
+        <div class="admin-item__actions">
+          <button class="tiny-btn" data-action="edit-request" data-id="${request.id}" type="button">Редактировать</button>
+          <button class="tiny-btn tiny-btn--accent" data-action="approve-request" data-id="${request.id}" type="button">Подтвердить</button>
+          <button class="tiny-btn tiny-btn--danger" data-action="delete-request" data-id="${request.id}" type="button">Отклонить</button>
+        </div>
+      </div>`
+    )
+    .join("");
+}
+
+function renderCharacterRequestState() {
+  if (!characterRequestState) return;
+  if (!currentUser || isDm()) {
+    characterRequestState.innerHTML = "";
+    return;
+  }
+
+  const character = resolveActiveCharacter();
+  const pendingRequest = getPendingCharacterRequest();
+
+  if (character) {
+    characterRequestState.innerHTML = "";
+    return;
+  }
+
+  if (pendingRequest) {
+    characterRequestState.innerHTML = `<article class="panel request-panel request-panel--pending">
+      <p class="eyebrow">Сила уже услышала</p>
+      <h3>Ваш персонаж отправлен на согласование великой силе</h3>
+      <p class="request-panel__text">DM увидит заявку, дополнит её характеристиками и утвердит героя. После этого карточка появится здесь автоматически.</p>
+      <div class="request-summary">
+        <span>${escapeHtml(pendingRequest.name)}</span>
+        <span>${escapeHtml(pendingRequest.race)}</span>
+        <span>${escapeHtml(pendingRequest.className)}</span>
+      </div>
+    </article>`;
+    return;
+  }
+
+  const raceOptions = getAvailableRaceOptions();
+  const classOptions = getAvailableClassOptions();
+
+  characterRequestState.innerHTML = `<article class="panel request-panel">
+    <p class="eyebrow">Новый герой</p>
+    <h3>Создание заявки на персонажа</h3>
+    <p class="request-panel__text">Заполни основу героя, а мастер затем доведёт карточку до боевого состояния.</p>
+    <form id="characterRequestForm" class="admin-form request-form">
+      <div class="field-grid">
+        <label class="auth-field">
+          <span>Имя персонажа</span>
+          <input type="text" name="name" placeholder="Например, Астэр">
+        </label>
+        <label class="auth-field">
+          <span>Раса</span>
+          <select name="race">
+            <option value="">Выбери народ</option>
+            ${raceOptions.map((race) => `<option value="${escapeHtml(race)}">${escapeHtml(race)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="auth-field">
+          <span>Класс</span>
+          <select name="className">
+            <option value="">Выбери класс</option>
+            ${classOptions.map((className) => `<option value="${escapeHtml(className)}">${escapeHtml(className)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="auth-field field-grid__wide">
+          <span>Описание</span>
+          <textarea name="description" rows="5" placeholder="Кто это, как он выглядит и чем запомнится в книге?"></textarea>
+        </label>
+      </div>
+      <div class="journal-actions">
+        <button class="action-btn" type="submit">Отправить мастеру</button>
+      </div>
+    </form>
+  </article>`;
+
+  characterRequestState
+    .querySelector("#characterRequestForm")
+    ?.addEventListener("submit", handleCharacterRequestSubmit);
+}
+
 function fillAdminForms() {
   mapForm.elements.src.value = db.map.src || "";
   mapForm.elements.note.value = db.map.note || "";
@@ -722,6 +1451,7 @@ function renderAdminPanels() {
   renderAdminSelects();
   renderUserList();
   renderCharacterList();
+  renderCharacterRequestList();
   fillAdminForms();
 }
 
@@ -733,6 +1463,8 @@ function resetUserForm() {
 function resetCharacterForm() {
   characterForm.reset();
   characterForm.elements.id.value = "";
+  characterForm.elements.requestId.value = "";
+  if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Сохранить персонажа";
 }
 
 function resetBestiaryForm() {
@@ -765,6 +1497,7 @@ function populateUserForm(user) {
 
 function populateCharacterForm(character) {
   characterForm.elements.id.value = character.id;
+  characterForm.elements.requestId.value = "";
   characterForm.elements.name.value = character.name;
   characterForm.elements.race.value = character.race;
   characterForm.elements.className.value = character.className;
@@ -782,6 +1515,20 @@ function populateCharacterForm(character) {
   characterForm.elements.inventory.value = (character.inventory || []).join("\n");
   characterForm.elements.description.value = character.description || "";
   characterForm.elements.image.value = character.image || "";
+  if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Сохранить персонажа";
+}
+
+function populateCharacterRequestApproval(requestEntry) {
+  resetCharacterForm();
+  characterForm.elements.requestId.value = requestEntry.id;
+  characterForm.elements.name.value = requestEntry.name || "";
+  characterForm.elements.race.value = requestEntry.race || "";
+  characterForm.elements.className.value = requestEntry.className || "";
+  characterForm.elements.ownerUserId.value = requestEntry.userId || "";
+  characterForm.elements.description.value = requestEntry.description || "";
+  characterForm.elements.health.value = 0;
+  characterForm.elements.armor.value = 0;
+  if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Подтвердить персонажа";
 }
 
 function populateBestiaryForm(creature) {
@@ -799,8 +1546,10 @@ function populateBestiaryForm(creature) {
   if (bestiaryEditorDelete) bestiaryEditorDelete.disabled = false;
 }
 
-function openMediaModal({ eyebrow, title, image }) {
+function openMediaModal(payload) {
   if (!mediaModal || !mediaModalFrame || !mediaModalTitle || !mediaModalEyebrow) return;
+  activeRacePreview = payload?.kind === "lore-race" ? { ...payload } : null;
+  const { eyebrow, title, image } = payload || {};
   const source = safeMediaUrl(image);
   mediaModalEyebrow.textContent = eyebrow || "";
   mediaModalTitle.textContent = title || "";
@@ -809,17 +1558,119 @@ function openMediaModal({ eyebrow, title, image }) {
     : `<div class="media-modal__empty">
         <span>Изображение не задано</span>
         <strong>${escapeHtml(title || "Образ недоступен")}</strong>
-        <p>DM может добавить ссылку на изображение прямо в редакторе.</p>
+        <p>DM может загрузить сюда собственную картинку.</p>
       </div>`;
   mediaModal.classList.remove("is-hidden");
   mediaModal.setAttribute("aria-hidden", "false");
+  updateRaceImageManager();
 }
 
 function closeMediaModal() {
   if (!mediaModal || !mediaModalFrame) return;
+  activeRacePreview = null;
   mediaModal.classList.add("is-hidden");
   mediaModal.setAttribute("aria-hidden", "true");
   mediaModalFrame.innerHTML = "";
+  updateRaceImageManager();
+}
+
+function updateFloatingLoreSearch() {
+  if (!loreSearch || !lorePanel) return;
+  const loreScreenActive = state.view === "lore";
+  if (!loreScreenActive) {
+    loreSearch.classList.remove("lore-search--floating");
+    loreSearch.style.removeProperty("--lore-search-left");
+    loreSearch.style.removeProperty("--lore-search-width");
+    return;
+  }
+
+  const panelRect = lorePanel.getBoundingClientRect();
+  const searchRect = loreSearch.getBoundingClientRect();
+  const topOffset = 10;
+  const shouldFloat =
+    loreSearchAnchorTop > 0 &&
+    window.scrollY > loreSearchAnchorTop - topOffset &&
+    panelRect.bottom - searchRect.height > topOffset + 12;
+
+  loreSearch.classList.toggle("lore-search--floating", shouldFloat);
+  if (shouldFloat) {
+    loreSearch.style.setProperty("--lore-search-left", `${panelRect.left + 16}px`);
+    loreSearch.style.setProperty("--lore-search-width", `${Math.max(0, panelRect.width - 32)}px`);
+  } else {
+    loreSearch.style.removeProperty("--lore-search-left");
+    loreSearch.style.removeProperty("--lore-search-width");
+  }
+}
+
+function refreshLoreSearchAnchor() {
+  if (!loreSearch) return;
+  loreSearch.classList.remove("lore-search--floating");
+  loreSearch.style.removeProperty("--lore-search-left");
+  loreSearch.style.removeProperty("--lore-search-width");
+  loreSearchAnchorTop = loreSearch.getBoundingClientRect().top + window.scrollY;
+  updateFloatingLoreSearch();
+}
+
+function updateRaceImageManager() {
+  if (!raceImageManager || !raceImageHint) return;
+  const visible = isDm() && activeRacePreview?.kind === "lore-race";
+  raceImageManager.classList.toggle("is-hidden", !visible);
+  if (!visible) return;
+  const customExists = Boolean(db.raceImages?.[activeRacePreview.slug]);
+  raceImageHint.textContent = customExists
+    ? "Для этой расы уже загружена своя картинка. Можно заменить её новым файлом."
+    : "Можно загрузить своё изображение для выбранной расы.";
+  if (raceImageResetBtn) raceImageResetBtn.disabled = !customExists;
+  if (raceImageInput) raceImageInput.value = "";
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadRaceImage() {
+  if (!isDm() || !activeRacePreview || activeRacePreview.kind !== "lore-race" || !raceImageInput?.files?.[0]) {
+    return;
+  }
+  const file = raceImageInput.files[0];
+  const dataUrl = await readFileAsDataUrl(file);
+  try {
+    await api("/api/race-images", {
+      method: "POST",
+      body: {
+        name: activeRacePreview.name,
+        dataUrl
+      }
+    });
+  } catch (error) {
+    if (error?.status === 404) {
+      throw new Error("Сервер книги не перезапущен. Перезапусти backend, чтобы загрузка картинок рас заработала.");
+    }
+    throw error;
+  }
+  await loadBootstrap();
+  activeRacePreview.image = getLoreRaceImage(activeRacePreview.name, activeRacePreview.type);
+  openMediaModal(activeRacePreview);
+}
+
+async function resetRaceImage() {
+  if (!isDm() || !activeRacePreview || activeRacePreview.kind !== "lore-race") return;
+  try {
+    await api(`/api/race-images/${encodeURIComponent(activeRacePreview.slug)}`, { method: "DELETE" });
+  } catch (error) {
+    if (error?.status === 404) {
+      throw new Error("Сервер книги не перезапущен. Перезапусти backend, чтобы сброс картинки расы заработал.");
+    }
+    throw error;
+  }
+  await loadBootstrap();
+  activeRacePreview.image = getLoreRaceImage(activeRacePreview.name, activeRacePreview.type);
+  openMediaModal(activeRacePreview);
 }
 
 function startBestiaryCreate() {
@@ -841,8 +1692,11 @@ function refreshAll() {
   heroUserbar?.classList.toggle("is-hidden", !loggedIn);
 
   if (!loggedIn) {
+    stopRuntimeSync();
+    if (characterRequestState) characterRequestState.innerHTML = "";
     if (roleBadge) roleBadge.textContent = "";
     if (currentUserLabel) currentUserLabel.textContent = "";
+    if (gameStateLabel) gameStateLabel.textContent = "";
     if (accountSummary) accountSummary.textContent = "Сейчас вы не вошли в систему.";
     navItems.forEach((button) => {
       if (button.dataset.target === "dm") {
@@ -853,12 +1707,21 @@ function refreshAll() {
     return;
   }
 
+  ensureRuntimeSync();
+
   if (roleBadge) roleBadge.textContent = currentUser.role === "dm" ? "DM" : "Игрок";
   if (currentUserLabel) {
     currentUserLabel.textContent =
       currentUser.role === "dm"
         ? `Вход как DM: ${currentUser.displayName}`
         : `Вход как игрок: ${currentUser.displayName}`;
+  }
+  if (gameStateLabel) {
+    gameStateLabel.textContent = isGameActive() ? "Сессия активна" : "Сессия не запущена";
+  }
+  if (gameToggleBtn) {
+    gameToggleBtn.textContent = isGameActive() ? "Завершить игру" : "Начать игру";
+    gameToggleBtn.classList.toggle("is-hidden", !isDm());
   }
 
   renderAccountSummary();
@@ -874,6 +1737,7 @@ function refreshAll() {
   renderBestiaryComposer();
   renderLore();
   renderLoreComposer();
+  refreshLoreSearchAnchor();
   renderJournal();
   renderMap();
   renderCharacterView();
@@ -907,6 +1771,7 @@ async function logout() {
   try {
     await api("/api/logout", { method: "POST" });
   } catch {}
+  stopRuntimeSync();
   currentUser = null;
   state.selectedCharacterId = "";
   saveUiState();
@@ -936,9 +1801,30 @@ async function handleUserFormSubmit(event) {
   }
 }
 
+async function handleCharacterRequestSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const payload = {
+    name: String(data.get("name") || "").trim(),
+    race: String(data.get("race") || "").trim(),
+    className: String(data.get("className") || "").trim(),
+    description: String(data.get("description") || "").trim()
+  };
+  if (!payload.name || !payload.race || !payload.className) return;
+  try {
+    await api("/api/character-requests", { method: "POST", body: payload });
+    await loadBootstrap();
+    refreshAll();
+  } catch (error) {
+    alert(error.message || "Не удалось отправить заявку мастеру.");
+  }
+}
+
 async function handleCharacterFormSubmit(event) {
   event.preventDefault();
   const data = new FormData(characterForm);
+  const requestId = String(data.get("requestId") || "").trim();
   const payload = {
     id: String(data.get("id") || "").trim(),
     name: String(data.get("name") || "").trim(),
@@ -963,7 +1849,14 @@ async function handleCharacterFormSubmit(event) {
   };
   if (!payload.name || !payload.race || !payload.className) return;
   try {
-    await api("/api/characters", { method: "POST", body: payload });
+    if (requestId) {
+      await api(`/api/character-requests/${encodeURIComponent(requestId)}/approve`, {
+        method: "POST",
+        body: payload
+      });
+    } else {
+      await api("/api/characters", { method: "POST", body: payload });
+    }
     resetCharacterForm();
     await loadBootstrap();
     refreshAll();
@@ -1039,7 +1932,7 @@ async function handleMapFormSubmit(event) {
 }
 
 async function saveJournalNow() {
-  if (!currentUser) return;
+  if (!currentUser || !isDm()) return;
   try {
     await api("/api/journal", {
       method: "PUT",
@@ -1052,6 +1945,7 @@ async function saveJournalNow() {
 }
 
 function scheduleJournalSave() {
+  if (!isDm()) return;
   clearTimeout(journalSaveTimer);
   journalSaveTimer = window.setTimeout(() => {
     saveJournalNow();
@@ -1075,6 +1969,17 @@ async function removeCharacter(characterId) {
     refreshAll();
   } catch (error) {
     alert(error.message || "Не удалось удалить персонажа.");
+  }
+}
+
+async function removeCharacterRequest(requestId) {
+  try {
+    await api(`/api/character-requests/${encodeURIComponent(requestId)}`, { method: "DELETE" });
+    if (characterForm?.elements.requestId.value === requestId) resetCharacterForm();
+    await loadBootstrap();
+    refreshAll();
+  } catch (error) {
+    alert(error.message || "Не удалось отклонить заявку.");
   }
 }
 
@@ -1136,6 +2041,16 @@ function handleAdminAction(event) {
     }
   }
 
+  if (action === "edit-request" || action === "approve-request") {
+    const requestEntry = (db.characterRequests || []).find((entry) => entry.id === button.dataset.id);
+    if (requestEntry) {
+      populateCharacterRequestApproval(requestEntry);
+      focusAdminForm(characterForm);
+    }
+  }
+
+  if (action === "delete-request") removeCharacterRequest(button.dataset.id);
+
   if (action === "delete-character") removeCharacter(button.dataset.id);
 
   if (action === "edit-bestiary") {
@@ -1161,12 +2076,27 @@ function handleAdminAction(event) {
       });
     }
   }
+
+  if (action === "preview-lore-race") {
+    const slug = slugifyRaceName(button.dataset.name);
+    openMediaModal({
+      kind: "lore-race",
+      eyebrow: button.dataset.type || "Народ",
+      title: button.dataset.name || "Тварь",
+      name: button.dataset.name || "Тварь",
+      type: button.dataset.type || "Народ",
+      slug,
+      image: getLoreRaceImage(button.dataset.name, button.dataset.type)
+    });
+  }
 }
 
 function bindEvents() {
   authForm.addEventListener("submit", handleAuthSubmit);
   logoutBtn.addEventListener("click", logout);
   settingsLogoutBtn.addEventListener("click", logout);
+  gameToggleBtn?.addEventListener("click", toggleGameState);
+  journalUpdateToast?.addEventListener("click", () => setView("journal"));
 
   navItems.forEach((button) =>
     button.addEventListener("click", () => setView(button.dataset.target))
@@ -1187,6 +2117,7 @@ function bindEvents() {
   loreSearch?.addEventListener("input", () => {
     state.loreQuery = loreSearch.value.trim();
     renderLore();
+    refreshLoreSearchAnchor();
   });
 
   saveNotesBtn.addEventListener("click", saveJournalNow);
@@ -1221,10 +2152,28 @@ function bindEvents() {
 
   userList.addEventListener("click", handleAdminAction);
   characterList.addEventListener("click", handleAdminAction);
+  characterRequestList?.addEventListener("click", handleAdminAction);
   bestiaryGrid.addEventListener("click", handleAdminAction);
+  loreContent?.addEventListener("click", handleAdminAction);
   loreTabs?.addEventListener("click", handleAdminAction);
   desktopDmQuery.addEventListener("change", refreshAll);
+  window.addEventListener("scroll", updateFloatingLoreSearch, { passive: true });
+  window.addEventListener("resize", refreshLoreSearchAnchor);
   mediaModalClose?.addEventListener("click", closeMediaModal);
+  raceImageSaveBtn?.addEventListener("click", async () => {
+    try {
+      await uploadRaceImage();
+    } catch (error) {
+      alert(error.message || "Не удалось сохранить изображение расы.");
+    }
+  });
+  raceImageResetBtn?.addEventListener("click", async () => {
+    try {
+      await resetRaceImage();
+    } catch (error) {
+      alert(error.message || "Не удалось сбросить изображение расы.");
+    }
+  });
   mediaModal?.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.dataset.closeMedia === "true") {
       closeMediaModal();

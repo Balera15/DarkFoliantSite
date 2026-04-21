@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#201913"/>
+      <stop offset="100%" stop-color="#100d0b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="32%" r="54%">
+      <stop offset="0%" stop-color="#d1a45e" stop-opacity="0.34"/>
+      <stop offset="100%" stop-color="#d1a45e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="1200" rx="84" fill="url(#bg)"/>
+  <rect x="36" y="36" width="1128" height="1128" rx="64" fill="none" stroke="#5c4528" stroke-width="4"/>
+  <rect x="68" y="68" width="1064" height="1064" rx="48" fill="none" stroke="#d1a45e" stroke-opacity="0.28" stroke-width="3"/>
+  <circle cx="600" cy="390" r="250" fill="url(#glow)"/>
+  <circle cx="600" cy="390" r="188" fill="none" stroke="#d1a45e" stroke-opacity="0.32" stroke-width="12"/>
+  <circle cx="600" cy="390" r="128" fill="none" stroke="#d1a45e" stroke-opacity="0.56" stroke-width="8"/>
+  <text x="600" y="430" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="188" fill="#d1a45e">I</text>
+  <text x="600" y="760" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="700" fill="#f6ead9">Драконорожденный</text>
+  <rect x="360" y="818" width="480" height="68" rx="34" fill="#5c4528" stroke="#d1a45e" stroke-opacity="0.45"/>
+  <text x="600" y="863" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="34" letter-spacing="4" fill="#d1a45e">ГУМАНОИД</text>
+</svg>

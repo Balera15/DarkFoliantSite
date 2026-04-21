@@ -8,6 +8,8 @@ const PORT = Number(process.env.PORT || 8000);
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
+const RACES_DIR = path.join(ROOT, "assets", "races");
+const RACE_UPLOAD_DIR = path.join(RACES_DIR, "uploads");
 const SESSION_COOKIE = "ferelden_sid";
 const DANGER_LEVEL_LABELS = {
   safe: "Угроза: безопасный",
@@ -29,6 +31,8 @@ const mimeTypes = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
   ".json": "application/json; charset=utf-8",
   ".ico": "image/x-icon"
 };
@@ -175,6 +179,11 @@ const defaultDb = {
       ]
     }
   ],
+  characterRequests: [],
+  raceImages: {},
+  game: {
+    isActive: false
+  },
   map: {
     src: "assets/map.svg",
     note: "Путеводная карта"
@@ -188,6 +197,8 @@ db = loadDb();
 
 function ensureDataDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(RACES_DIR, { recursive: true });
+  fs.mkdirSync(RACE_UPLOAD_DIR, { recursive: true });
 }
 
 function hashPassword(password) {
@@ -259,6 +270,22 @@ function normalizeBestiaryEntry(entry) {
   };
 }
 
+function normalizeCharacterRequest(entry) {
+  return {
+    id: entry.id || createId("req"),
+    userId: String(entry.userId || "").trim(),
+    username: String(entry.username || "").trim(),
+    displayName: String(entry.displayName || "").trim(),
+    name: String(entry.name || "").trim(),
+    race: String(entry.race || "").trim(),
+    className: String(entry.className || "").trim(),
+    description: String(entry.description || "").trim(),
+    status: String(entry.status || "pending").trim() || "pending",
+    createdAt: String(entry.createdAt || new Date().toISOString()),
+    updatedAt: String(entry.updatedAt || new Date().toISOString())
+  };
+}
+
 function normalizeDb(value) {
   return {
     users: Array.isArray(value?.users) ? value.users : [],
@@ -273,6 +300,13 @@ function normalizeDb(value) {
       : [],
     bestiary: Array.isArray(value?.bestiary) ? value.bestiary.map(normalizeBestiaryEntry) : [],
     lore: Array.isArray(value?.lore) ? value.lore.map(normalizeLoreEntry) : [],
+    characterRequests: Array.isArray(value?.characterRequests)
+      ? value.characterRequests.map(normalizeCharacterRequest)
+      : [],
+    raceImages: value?.raceImages && typeof value.raceImages === "object" ? value.raceImages : {},
+    game: {
+      isActive: Boolean(value?.game?.isActive)
+    },
     map: value?.map && typeof value.map === "object" ? value.map : clone(defaultDb.map),
     journal: typeof value?.journal === "string" ? value.journal : ""
   };
@@ -310,6 +344,9 @@ function visibleDbFor(user) {
       characters: clone(db.characters),
       bestiary: clone(db.bestiary),
       lore: clone(db.lore),
+      characterRequests: clone(db.characterRequests),
+      raceImages: clone(db.raceImages),
+      game: clone(db.game),
       map: clone(db.map),
       journal: db.journal
     };
@@ -324,9 +361,138 @@ function visibleDbFor(user) {
     ),
     bestiary: clone(db.bestiary),
     lore: clone(db.lore),
+    characterRequests: clone(
+      db.characterRequests.filter((request) => request.userId === user.id && request.status === "pending")
+    ),
+    raceImages: clone(db.raceImages),
+    game: clone(db.game),
     map: clone(db.map),
     journal: db.journal
   };
+}
+
+function visibleCharactersFor(user) {
+  return clone(visibleDbFor(user).characters);
+}
+
+function visibleCharacterRequestsFor(user) {
+  return clone(visibleDbFor(user).characterRequests || []);
+}
+
+function canPlayerManageCharacter(user, character) {
+  if (!user || !character) return false;
+  if (user.role === "dm") return true;
+  return Boolean(db.game?.isActive) && (character.id === user.characterId || character.ownerUserId === user.id);
+}
+
+function getLoreEntryByCategory(category) {
+  const normalized = String(category || "").trim().toLowerCase();
+  return db.lore.find((entry) => String(entry.category || "").trim().toLowerCase() === normalized) || null;
+}
+
+function parseLabeledLoreRecord(text, labels) {
+  const source = String(text || "").trim();
+  const escapedLabels = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const labelPattern = new RegExp(`(?:^|\\.\\s+)(${escapedLabels.join("|")}):\\s*`, "g");
+  const firstLabelMatch = labelPattern.exec(source);
+  if (!firstLabelMatch) return null;
+
+  const sections = [];
+  let currentLabel = firstLabelMatch[1];
+  let valueStart = labelPattern.lastIndex;
+  let nextMatch = labelPattern.exec(source);
+
+  while (currentLabel) {
+    const end = nextMatch ? nextMatch.index : source.length;
+    const value = source.slice(valueStart, end).trim().replace(/\.$/, "");
+    sections.push({ label: currentLabel, value });
+    if (!nextMatch) break;
+    currentLabel = nextMatch[1];
+    valueStart = labelPattern.lastIndex;
+    nextMatch = labelPattern.exec(source);
+  }
+
+  return Object.fromEntries(sections.map((section) => [section.label, section.value]));
+}
+
+function extractAvailableRaces() {
+  const entry = getLoreEntryByCategory("народы");
+  if (!entry) return [];
+  return entry.items
+    .map((item) => {
+      const source = String(item || "").trim();
+      const parsed = parseLabeledLoreRecord(String(item || ""), [
+        "Название",
+        "Бонусы",
+        "Тип",
+        "Размер",
+        "Способности",
+        "Пометка",
+        "Описание"
+      ]);
+      if (parsed?.Название) return parsed.Название.trim();
+      const fallbackMatch = source.match(/^(.+?)(?:\.\s+Бонусы:|:)/);
+      if (fallbackMatch?.[1]) return fallbackMatch[1].trim();
+      return source.split(".")[0].trim();
+    })
+    .filter(Boolean);
+}
+
+function extractAvailableClasses() {
+  const entry = getLoreEntryByCategory("классы");
+  if (!entry) return [];
+  return entry.items
+    .map((item) => {
+      const parsed = parseLabeledLoreRecord(String(item || ""), [
+        "Название",
+        "Доступное оружие",
+        "Сложность",
+        "Описание"
+      ]);
+      if (parsed?.Название) return parsed.Название.trim();
+      return String(item || "").split(".")[0].trim();
+    })
+    .filter(Boolean);
+}
+
+function findPendingRequestForUser(userId) {
+  return db.characterRequests.find(
+    (request) => request.userId === userId && String(request.status || "") === "pending"
+  ) || null;
+}
+
+function slugifyRaceName(name) {
+  const translitMap = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i",
+    й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",
+    у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y",
+    ь: "", э: "e", ю: "yu", я: "ya"
+  };
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .split("")
+    .map((char) => translitMap[char] ?? char)
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-");
+}
+
+function decodeDataUrl(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:(image\/(?:png|jpeg|jpg|webp|gif|svg\+xml));base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return null;
+  const mime = match[1];
+  const base64 = match[2];
+  const ext =
+    mime === "image/png" ? ".png"
+      : mime === "image/jpeg" || mime === "image/jpg" ? ".jpg"
+        : mime === "image/webp" ? ".webp"
+          : mime === "image/gif" ? ".gif"
+            : mime === "image/svg+xml" ? ".svg"
+              : "";
+  if (!ext) return null;
+  return { mime, ext, buffer: Buffer.from(base64, "base64") };
 }
 
 function payloadFor(user) {
@@ -449,6 +615,18 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/runtime") {
+    const user = requireAuth(request, response);
+    if (!user) return;
+    sendJson(response, 200, {
+      game: clone(db.game),
+      characters: visibleCharactersFor(user),
+      characterRequests: visibleCharacterRequestsFor(user),
+      journal: db.journal
+    });
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/login") {
     const body = await readBody(request);
     const username = String(body.username || "").trim();
@@ -463,6 +641,60 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/character-requests") {
+    const user = requireAuth(request, response);
+    if (!user) return;
+    if (user.role === "dm") {
+      sendError(response, 403, "DM не отправляет заявку на персонажа.");
+      return;
+    }
+    if (user.characterId || db.characters.some((character) => character.ownerUserId === user.id)) {
+      sendError(response, 400, "Для этого игрока уже существует персонаж.");
+      return;
+    }
+    if (findPendingRequestForUser(user.id)) {
+      sendError(response, 400, "Заявка уже ожидает согласования.");
+      return;
+    }
+
+    const body = await readBody(request);
+    const availableRaces = extractAvailableRaces();
+    const availableClasses = extractAvailableClasses();
+    const race = String(body.race || "").trim();
+    const className = String(body.className || "").trim();
+    const name = String(body.name || "").trim();
+    const description = String(body.description || "").trim();
+
+    if (!name || !race || !className) {
+      sendError(response, 400, "Имя, раса и класс обязательны.");
+      return;
+    }
+    if (!availableRaces.includes(race)) {
+      sendError(response, 400, "Выбрана недоступная раса.");
+      return;
+    }
+    if (!availableClasses.includes(className)) {
+      sendError(response, 400, "Выбран недоступный класс.");
+      return;
+    }
+
+    db.characterRequests.push(
+      normalizeCharacterRequest({
+        userId: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        name,
+        race,
+        className,
+        description,
+        status: "pending"
+      })
+    );
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/logout") {
     clearSession(request, response);
     sendJson(response, 200, { ok: true });
@@ -470,7 +702,7 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "PUT" && url.pathname === "/api/journal") {
-    const user = requireAuth(request, response);
+    const user = requireDm(request, response);
     if (!user) return;
     const body = await readBody(request);
     db.journal = String(body.journal || "");
@@ -486,6 +718,18 @@ async function handleApi(request, response, url) {
     db.map = {
       src: String(body.src || "").trim() || "assets/map.svg",
       note: String(body.note || "").trim() || "Путеводная карта"
+    };
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
+  if (request.method === "PUT" && url.pathname === "/api/game") {
+    const user = requireDm(request, response);
+    if (!user) return;
+    const body = await readBody(request);
+    db.game = {
+      isActive: Boolean(body.isActive)
     };
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
@@ -554,6 +798,13 @@ async function handleApi(request, response, url) {
         ? { ...entry, characterId: "" }
         : entry
     );
+    if (nextUser.characterId) {
+      db.characterRequests = db.characterRequests.map((entry) =>
+        entry.userId === nextUser.id && entry.status === "pending"
+          ? { ...entry, status: "approved", updatedAt: new Date().toISOString() }
+          : entry
+      );
+    }
 
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
@@ -570,6 +821,7 @@ async function handleApi(request, response, url) {
       return;
     }
     db.users = db.users.filter((entry) => entry.id !== targetId);
+    db.characterRequests = db.characterRequests.filter((request) => request.userId !== targetId);
     db.characters = db.characters.map((character) =>
       character.ownerUserId === targetId ? { ...character, ownerUserId: "" } : character
     );
@@ -614,7 +866,81 @@ async function handleApi(request, response, url) {
         ? { ...character, ownerUserId: "" }
         : character
     );
+    if (nextCharacter.ownerUserId) {
+      db.characterRequests = db.characterRequests.map((entry) =>
+        entry.userId === nextCharacter.ownerUserId && entry.status === "pending"
+          ? { ...entry, status: "approved", updatedAt: new Date().toISOString() }
+          : entry
+      );
+    }
 
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname.startsWith("/api/character-requests/") && url.pathname.endsWith("/approve")) {
+    const user = requireDm(request, response);
+    if (!user) return;
+    const requestId = decodeURIComponent(
+      url.pathname.slice("/api/character-requests/".length, -"/approve".length)
+    );
+    const existingRequest = db.characterRequests.find(
+      (entry) => entry.id === requestId && String(entry.status || "") === "pending"
+    );
+    if (!existingRequest) {
+      sendError(response, 404, "Заявка не найдена.");
+      return;
+    }
+
+    const body = await readBody(request);
+    const nextCharacter = {
+      id: String(body.id || "").trim() || createId("char"),
+      name: String(body.name || existingRequest.name).trim(),
+      race: String(body.race || existingRequest.race).trim(),
+      className: String(body.className || existingRequest.className).trim(),
+      health: Number(body.health || 0),
+      armor: Number(body.armor || 0),
+      stats: normalizeStats(body.stats),
+      weapon: String(body.weapon || "").trim(),
+      image: String(body.image || "").trim(),
+      skills: Array.isArray(body.skills) ? body.skills.map(String) : [],
+      inventory: Array.isArray(body.inventory) ? body.inventory.map(String) : [],
+      description: String(body.description || existingRequest.description || "").trim(),
+      ownerUserId: existingRequest.userId
+    };
+
+    if (!nextCharacter.name || !nextCharacter.race || !nextCharacter.className) {
+      sendError(response, 400, "Имя, раса и класс обязательны.");
+      return;
+    }
+
+    const existingIndex = db.characters.findIndex((entry) => entry.id === nextCharacter.id);
+    if (existingIndex >= 0) db.characters[existingIndex] = nextCharacter;
+    else db.characters.push(nextCharacter);
+
+    updateUserAssignments(nextCharacter.id, nextCharacter.ownerUserId);
+    db.characters = db.characters.map((character) =>
+      character.id !== nextCharacter.id && character.ownerUserId === nextCharacter.ownerUserId
+        ? { ...character, ownerUserId: "" }
+        : character
+    );
+
+    db.characterRequests = db.characterRequests.map((entry) =>
+      entry.id === requestId
+        ? { ...entry, status: "approved", updatedAt: new Date().toISOString() }
+        : entry
+    );
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
+  if (request.method === "DELETE" && url.pathname.startsWith("/api/character-requests/")) {
+    const user = requireDm(request, response);
+    if (!user) return;
+    const targetId = decodeURIComponent(url.pathname.slice("/api/character-requests/".length));
+    db.characterRequests = db.characterRequests.filter((entry) => entry.id !== targetId);
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
     return;
@@ -628,6 +954,46 @@ async function handleApi(request, response, url) {
     db.users = db.users.map((entry) =>
       entry.characterId === targetId ? { ...entry, characterId: "" } : entry
     );
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
+  if (request.method === "PATCH" && url.pathname.startsWith("/api/characters/")) {
+    const user = requireAuth(request, response);
+    if (!user) return;
+    const targetId = decodeURIComponent(url.pathname.slice("/api/characters/".length));
+    const existingIndex = db.characters.findIndex((character) => character.id === targetId);
+    if (existingIndex < 0) {
+      sendError(response, 404, "Персонаж не найден.");
+      return;
+    }
+
+    const currentCharacter = db.characters[existingIndex];
+    if (!canPlayerManageCharacter(user, currentCharacter)) {
+      sendError(response, 403, "Редактирование персонажа сейчас недоступно.");
+      return;
+    }
+
+    const body = await readBody(request);
+    const healthDelta = Number(body.healthDelta || 0);
+    const armorDelta = Number(body.armorDelta || 0);
+    const hasInventory = Object.prototype.hasOwnProperty.call(body, "inventory");
+    const inventory = hasInventory && Array.isArray(body.inventory) ? body.inventory.map(String) : currentCharacter.inventory;
+
+    if (!Number.isFinite(healthDelta) || !Number.isFinite(armorDelta)) {
+      sendError(response, 400, "Некорректное изменение характеристик.");
+      return;
+    }
+
+    const nextCharacter = {
+      ...currentCharacter,
+      health: Math.max(0, currentCharacter.health + Math.trunc(healthDelta)),
+      armor: Math.max(0, currentCharacter.armor + Math.trunc(armorDelta)),
+      inventory
+    };
+
+    db.characters[existingIndex] = nextCharacter;
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
     return;
@@ -702,6 +1068,55 @@ async function handleApi(request, response, url) {
     if (!user) return;
     const targetId = decodeURIComponent(url.pathname.slice("/api/lore/".length));
     db.lore = db.lore.filter((entry) => entry.id !== targetId);
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/race-images") {
+    const user = requireDm(request, response);
+    if (!user) return;
+    const body = await readBody(request);
+    const raceName = String(body.name || "").trim();
+    const slug = slugifyRaceName(raceName);
+    const decoded = decodeDataUrl(body.dataUrl);
+    if (!slug || !decoded) {
+      sendError(response, 400, "Не удалось прочитать изображение расы.");
+      return;
+    }
+
+    const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
+    if (previous) {
+      const previousPath = path.join(ROOT, previous);
+      if (previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
+        fs.unlinkSync(previousPath);
+      }
+    }
+
+    const fileName = `${slug}${decoded.ext}`;
+    const targetPath = path.join(RACE_UPLOAD_DIR, fileName);
+    fs.writeFileSync(targetPath, decoded.buffer);
+    db.raceImages = { ...db.raceImages, [slug]: path.join("assets", "races", "uploads", fileName).replace(/\\/g, "/") };
+    saveDb(db);
+    sendJson(response, 200, payloadFor(user));
+    return;
+  }
+
+  if (request.method === "DELETE" && url.pathname.startsWith("/api/race-images/")) {
+    const user = requireDm(request, response);
+    if (!user) return;
+    const slug = decodeURIComponent(url.pathname.slice("/api/race-images/".length));
+    const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
+    if (previous) {
+      const previousPath = path.join(ROOT, previous);
+      if (previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
+        fs.unlinkSync(previousPath);
+      }
+    }
+    if (db.raceImages && slug in db.raceImages) {
+      delete db.raceImages[slug];
+      db.raceImages = { ...db.raceImages };
+    }
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
     return;

@@ -4,7 +4,7 @@ $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $projectRoot
 
 if (-not $env:PORT) {
-  $env:PORT = "8787"
+  $env:PORT = "8000"
 }
 
 Write-Host ""

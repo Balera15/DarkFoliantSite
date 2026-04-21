@@ -44,8 +44,12 @@
         <div>
           <span class="hero__role" id="roleBadge"></span>
           <p class="hero__user" id="currentUserLabel"></p>
+          <p class="hero__game-state" id="gameStateLabel"></p>
         </div>
-        <button class="ghost-btn ghost-btn--small" id="logoutBtn" type="button">Выйти</button>
+        <div class="hero__user-actions">
+          <button class="ghost-btn ghost-btn--small dm-only is-hidden" id="gameToggleBtn" type="button">Начать игру</button>
+          <button class="ghost-btn ghost-btn--small" id="logoutBtn" type="button">Выйти</button>
+        </div>
       </div>
     </header>
 
@@ -241,6 +245,7 @@
             <h2>Карточка персонажа</h2>
           </div>
         </div>
+        <div id="characterRequestState"></div>
         <div id="characterView"></div>
       </section>
 
@@ -287,6 +292,7 @@
             <h3>Персонажи</h3>
             <form id="characterForm" class="admin-form">
               <input type="hidden" name="id">
+              <input type="hidden" name="requestId">
               <div class="field-grid">
                 <label class="auth-field">
                   <span>Имя</span>
@@ -350,6 +356,12 @@
           </article>
 
           <article class="panel admin-section">
+            <h3>Заявки игроков</h3>
+            <p class="admin-empty admin-empty--compact">Игроки без персонажа смогут отправить сюда свои будущие карточки.</p>
+            <div class="admin-list" id="characterRequestList"></div>
+          </article>
+
+          <article class="panel admin-section">
             <h3>Карта</h3>
             <form id="mapForm" class="admin-form">
               <label class="auth-field">
@@ -369,6 +381,10 @@
       </section>
     </main>
 
+    <button class="journal-update-toast is-hidden" id="journalUpdateToast" type="button">
+      Журнал обновлён
+    </button>
+
     <nav class="bottom-nav" aria-label="Основная навигация">
       <button class="nav-item is-active" data-target="bestiary">Бестиарий</button>
       <button class="nav-item" data-target="lore">Лор</button>
@@ -386,6 +402,17 @@
         <p class="media-modal__eyebrow" id="mediaModalEyebrow"></p>
         <h3 class="media-modal__title" id="mediaModalTitle"></h3>
         <div class="media-modal__frame" id="mediaModalFrame"></div>
+        <div class="media-modal__controls dm-only is-hidden" id="raceImageManager">
+          <label class="auth-field">
+            <span>Своя картинка для расы</span>
+            <input id="raceImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+          </label>
+          <div class="journal-actions">
+            <button class="action-btn" id="raceImageSaveBtn" type="button">Сохранить изображение</button>
+            <button class="ghost-btn" id="raceImageResetBtn" type="button">Сбросить на образ книги</button>
+          </div>
+          <p class="hint" id="raceImageHint">Можно загрузить своё изображение для выбранной расы.</p>
+        </div>
       </div>
     </div>
   </div>
