@@ -12,28 +12,25 @@ if ($IntervalMinutes -lt 1) {
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $updateScript = Join-Path $projectRoot "update-book.ps1"
 $taskName = "FereldenBookAutoUpdate"
+$startTime = (Get-Date).AddMinutes(1).ToString("HH:mm")
+$taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$updateScript`" -Port $Port"
+$escapedTaskCommand = $taskCommand.Replace('"', '\"')
 
-$action = New-ScheduledTaskAction `
-  -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$updateScript`" -Port $Port"
+$createArgs = @(
+  "/Create",
+  "/F",
+  "/SC", "MINUTE",
+  "/MO", "$IntervalMinutes",
+  "/TN", $taskName,
+  "/TR", $escapedTaskCommand,
+  "/ST", $startTime
+)
 
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
-$trigger.RepetitionInterval = (New-TimeSpan -Minutes $IntervalMinutes)
-$trigger.RepetitionDuration = (New-TimeSpan -Days 3650)
-
-$settings = New-ScheduledTaskSettingsSet `
-  -StartWhenAvailable `
-  -AllowStartIfOnBatteries `
-  -DontStopIfGoingOnBatteries `
-  -MultipleInstances IgnoreNew
-
-Register-ScheduledTask `
-  -TaskName $taskName `
-  -Action $action `
-  -Trigger $trigger `
-  -Settings $settings `
-  -Description "Auto-updates and restarts Ferelden book from GitHub." `
-  -Force | Out-Null
+$output = & schtasks.exe @createArgs 2>&1
+if ($LASTEXITCODE -ne 0) {
+  throw ("Failed to create scheduled task '{0}'.`n{1}" -f $taskName, ($output -join [Environment]::NewLine))
+}
 
 Write-Host "Scheduled task '$taskName' has been installed." -ForegroundColor Green
 Write-Host "It will check GitHub every $IntervalMinutes minute(s)." -ForegroundColor Cyan
+Write-Host "Start time: $startTime" -ForegroundColor DarkGray
