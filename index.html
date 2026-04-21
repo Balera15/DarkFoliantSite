@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,6 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="auth-screen" id="authScreen">
     <div class="auth-card panel">
@@ -25,7 +27,8 @@
         </label>
         <button class="action-btn" type="submit">Войти</button>
       </form>
-      <p class="auth-hint">DM: <strong>valera / valera123</strong>. Игрок для проверки: <strong>ivan / ivan123</strong>.</p>
+      <p class="auth-hint">DM: <strong>valera / valera123</strong>. Игрок для проверки: <strong>ivan / ivan123</strong>.
+      </p>
       <p class="auth-error" id="authError"></p>
     </div>
   </div>
@@ -47,7 +50,8 @@
           <p class="hero__game-state" id="gameStateLabel"></p>
         </div>
         <div class="hero__user-actions">
-          <button class="ghost-btn ghost-btn--small dm-only is-hidden" id="gameToggleBtn" type="button">Начать игру</button>
+          <button class="ghost-btn ghost-btn--small dm-only is-hidden" id="gameToggleBtn" type="button">Начать
+            игру</button>
           <button class="ghost-btn ghost-btn--small" id="logoutBtn" type="button">Выйти</button>
         </div>
       </div>
@@ -191,7 +195,8 @@
         </div>
         <article class="panel">
           <label class="field-label" for="sessionNotes">Поле записи</label>
-          <textarea id="sessionNotes" rows="10" placeholder="Кто пришёл на совет? Какие улики нашли? Что случилось у костра?"></textarea>
+          <textarea id="sessionNotes" rows="10"
+            placeholder="Кто пришёл на совет? Какие улики нашли? Что случилось у костра?"></textarea>
           <div class="journal-actions">
             <button class="action-btn" id="saveNotes">Сохранить</button>
             <button class="ghost-btn" id="clearNotes">Очистить</button>
@@ -314,17 +319,17 @@
                   <span>Здоровье</span>
                   <input type="number" name="health" min="0">
                 </label>
-              <label class="auth-field">
-                <span>Броня</span>
-                <input type="number" name="armor" min="0">
-              </label>
-              <label class="auth-field field-grid__wide">
-                <span>Изображение персонажа</span>
-                <input type="text" name="image" placeholder="https://...">
-              </label>
-            </div>
+                <label class="auth-field">
+                  <span>Броня</span>
+                  <input type="number" name="armor" min="0">
+                </label>
+                <label class="auth-field field-grid__wide">
+                  <span>Изображение персонажа</span>
+                  <input type="text" name="image" placeholder="https://...">
+                </label>
+              </div>
               <div class="field-grid field-grid--stats">
-                <label class="auth-field"><span>Сила</span><input type="number" name="strength" min="0"></label>
+                <label class="auth-field"><span>СилачКА</span><input type="number" name="strength" min="0"></label>
                 <label class="auth-field"><span>Ловкость</span><input type="number" name="dexterity" min="0"></label>
                 <label class="auth-field"><span>Выносл.</span><input type="number" name="constitution" min="0"></label>
                 <label class="auth-field"><span>Мудр.</span><input type="number" name="wisdom" min="0"></label>
@@ -357,7 +362,8 @@
 
           <article class="panel admin-section">
             <h3>Заявки игроков</h3>
-            <p class="admin-empty admin-empty--compact">Игроки без персонажа смогут отправить сюда свои будущие карточки.</p>
+            <p class="admin-empty admin-empty--compact">Игроки без персонажа смогут отправить сюда свои будущие
+              карточки.</p>
             <div class="admin-list" id="characterRequestList"></div>
           </article>
 
@@ -398,7 +404,8 @@
     <div class="media-modal is-hidden" id="mediaModal" aria-hidden="true">
       <div class="media-modal__backdrop" data-close-media="true"></div>
       <div class="media-modal__dialog panel" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle">
-        <button class="media-modal__close ghost-btn ghost-btn--small" id="mediaModalClose" type="button">Закрыть</button>
+        <button class="media-modal__close ghost-btn ghost-btn--small" id="mediaModalClose"
+          type="button">Закрыть</button>
         <p class="media-modal__eyebrow" id="mediaModalEyebrow"></p>
         <h3 class="media-modal__title" id="mediaModalTitle"></h3>
         <div class="media-modal__frame" id="mediaModalFrame"></div>
@@ -419,4 +426,5 @@
 
   <script src="script.js"></script>
 </body>
+
 </html>
