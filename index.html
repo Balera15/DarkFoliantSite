@@ -8,6 +8,7 @@
   <title>Книга Ферелдена</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles/dm-admin.css">
 </head>
 
 <body class="boot-loading">
@@ -327,8 +328,41 @@
           <span class="screen__badge">Только DM</span>
         </div>
 
-        <div class="dm-layout">
-          <article class="panel admin-section">
+        <div class="dm-hub">
+          <aside class="panel dm-nav">
+            <div class="dm-nav__intro">
+              <p class="eyebrow">Пульт мастера</p>
+              <h3>Редактор кампании</h3>
+              <p class="hint">Выбирай один рабочий раздел и редактируй его без бесконечной простыни.</p>
+            </div>
+            <div class="dm-nav__stats">
+              <div class="dm-stat-card">
+                <span>Игроки</span>
+                <strong id="dmUsersCount">0</strong>
+              </div>
+              <div class="dm-stat-card">
+                <span>Персонажи</span>
+                <strong id="dmCharactersCount">0</strong>
+              </div>
+              <div class="dm-stat-card">
+                <span>Заявки</span>
+                <strong id="dmRequestsCount">0</strong>
+              </div>
+              <div class="dm-stat-card">
+                <span>Лор</span>
+                <strong id="dmLoreCount">0</strong>
+              </div>
+            </div>
+            <div class="dm-nav__buttons" role="tablist" aria-label="Разделы управления">
+              <button class="dm-nav__button is-active" data-action="select-dm-panel" data-panel="users" type="button">Аккаунты</button>
+              <button class="dm-nav__button" data-action="select-dm-panel" data-panel="characters" type="button">Персонажи</button>
+              <button class="dm-nav__button" data-action="select-dm-panel" data-panel="requests" type="button">Заявки</button>
+              <button class="dm-nav__button" data-action="select-dm-panel" data-panel="map" type="button">Карта</button>
+            </div>
+          </aside>
+
+          <div class="dm-stage">
+          <article class="panel admin-section dm-panel is-active" data-dm-panel="users">
             <h3>Аккаунты игроков</h3>
             <form id="userForm" class="admin-form">
               <input type="hidden" name="id">
@@ -358,7 +392,7 @@
             <div class="admin-list" id="userList"></div>
           </article>
 
-          <article class="panel admin-section">
+          <article class="panel admin-section dm-panel" data-dm-panel="characters">
             <h3>Персонажи</h3>
             <form id="characterForm" class="admin-form">
               <input type="hidden" name="id">
@@ -426,14 +460,14 @@
             <div class="admin-list" id="characterList"></div>
           </article>
 
-          <article class="panel admin-section">
+          <article class="panel admin-section dm-panel" data-dm-panel="requests">
             <h3>Заявки игроков</h3>
             <p class="admin-empty admin-empty--compact">Игроки без персонажа смогут отправить сюда свои будущие
               карточки.</p>
             <div class="admin-list" id="characterRequestList"></div>
           </article>
 
-            <article class="panel admin-section">
+            <article class="panel admin-section dm-panel" data-dm-panel="map">
               <h3>Карта</h3>
               <form id="mapForm" class="admin-form">
                 <input type="hidden" name="currentSrc">
@@ -450,6 +484,7 @@
               </div>
             </form>
           </article>
+          </div>
         </div>
       </section>
     </main>
@@ -491,6 +526,7 @@
     </div>
   </div>
 
+  <script src="scripts/dm-admin.js"></script>
   <script src="script.js"></script>
 </body>
 
