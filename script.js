@@ -2385,6 +2385,7 @@ function bindEvents() {
   userList.addEventListener("click", handleAdminAction);
   characterList.addEventListener("click", handleAdminAction);
   characterRequestList?.addEventListener("click", handleAdminAction);
+  dmScreen?.addEventListener("click", handleAdminAction);
   bestiaryGrid.addEventListener("click", handleAdminAction);
   loreContent?.addEventListener("click", handleAdminAction);
   loreTabs?.addEventListener("click", handleAdminAction);
