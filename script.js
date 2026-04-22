@@ -219,6 +219,8 @@ let activeRacePreview = null;
 let lastModalTrigger = null;
 let runtimeSyncTimer = null;
 let runtimeSyncBusy = false;
+let characterRuntimeRequestSeq = 0;
+const latestCharacterRuntimeRequest = new Map();
 
 let state = {
   view: "bestiary",
@@ -1401,13 +1403,58 @@ function renderCharacterView() {
   bindCharacterViewActions(characterView);
 }
 
+function applyCharacterRuntimePatchLocally(characterId, patch = {}) {
+  const characterIndex = db.characters.findIndex((entry) => entry.id === characterId);
+  if (characterIndex < 0) return null;
+  const currentCharacter = db.characters[characterIndex];
+  const healthDelta = Number(patch.healthDelta || 0);
+  const armorDelta = Number(patch.armorDelta || 0);
+  const hasInventory = Object.prototype.hasOwnProperty.call(patch, "inventory");
+  const nextCharacter = {
+    ...currentCharacter,
+    health: Number.isFinite(healthDelta)
+      ? Math.max(0, currentCharacter.health + Math.trunc(healthDelta))
+      : currentCharacter.health,
+    armor: Number.isFinite(armorDelta)
+      ? Math.max(0, currentCharacter.armor + Math.trunc(armorDelta))
+      : currentCharacter.armor,
+    inventory: hasInventory && Array.isArray(patch.inventory) ? [...patch.inventory] : currentCharacter.inventory
+  };
+  db.characters[characterIndex] = nextCharacter;
+  return currentCharacter;
+}
+
 async function updateCharacterRuntime(characterId, patch) {
-  await api(`/api/characters/${encodeURIComponent(characterId)}`, {
-    method: "PATCH",
-    body: patch
-  });
-  await loadBootstrap();
+  const requestSeq = ++characterRuntimeRequestSeq;
+  latestCharacterRuntimeRequest.set(characterId, requestSeq);
+  const previousCharacter = applyCharacterRuntimePatchLocally(characterId, patch);
   refreshAll();
+  try {
+    const payload = await api(`/api/characters/${encodeURIComponent(characterId)}`, {
+      method: "PATCH",
+      body: patch
+    });
+    if (latestCharacterRuntimeRequest.get(characterId) !== requestSeq) return;
+    if (payload?.user) {
+      applyBootstrap(payload);
+    } else if (previousCharacter) {
+      await loadBootstrap();
+    }
+    refreshAll();
+  } catch (error) {
+    if (latestCharacterRuntimeRequest.get(characterId) === requestSeq && previousCharacter) {
+      const characterIndex = db.characters.findIndex((entry) => entry.id === characterId);
+      if (characterIndex >= 0) {
+        db.characters[characterIndex] = previousCharacter;
+      }
+      refreshAll();
+      try {
+        await loadBootstrap();
+        refreshAll();
+      } catch {}
+    }
+    throw error;
+  }
 }
 
 async function toggleGameState() {
