@@ -674,6 +674,7 @@ textarea:focus {
 }
 
 .lore-table input,
+.lore-table select,
 .lore-table textarea {
   width: 100%;
   border: 1px solid rgba(232, 210, 173, 0.12);

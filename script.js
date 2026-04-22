@@ -505,6 +505,17 @@ function getLoreTableSchema(category) {
   return ["Запись"];
 }
 
+function getLoreTableSelectOptions(category, column) {
+  const normalizedCategory = normalizedLoreCategory(category);
+  if (normalizedCategory === "народы" && column === "Тип") {
+    return ["Гуманоид", "Фея", "Слизь", "Нежить", "Монстр", "Механизм"];
+  }
+  if (normalizedCategory === "классы" && column === "Сложность") {
+    return ["Легко", "Средне", "Сложно"];
+  }
+  return null;
+}
+
 function parseLoreItemForTable(category, item) {
   const columns = getLoreTableSchema(category);
   if (columns.length === 1 && columns[0] === "Запись") {
@@ -513,8 +524,18 @@ function parseLoreItemForTable(category, item) {
   const normalized = normalizedLoreCategory(category);
   if (normalized === "народы") {
     const parsed = parseLabeledLoreRecord(item, columns);
-    if (parsed) return parsed;
     const fallback = parseLoreRecord(item);
+    if (parsed) {
+      return {
+        Название: parsed["Название"] || fallback?.name || "",
+        Бонусы: parsed["Бонусы"] || fallback?.bonus || "",
+        Тип: parsed["Тип"] || fallback?.type || "",
+        Размер: parsed["Размер"] || fallback?.size || "",
+        Способности: parsed["Способности"] || fallback?.abilities || "",
+        Пометка: parsed["Пометка"] || fallback?.note || "",
+        Описание: parsed["Описание"] || fallback?.description || ""
+      };
+    }
     if (!fallback) return Object.fromEntries(columns.map((column) => [column, ""]));
     return {
       Название: fallback.name || "",
@@ -533,6 +554,20 @@ function buildLoreItemFromTable(category, row) {
   const columns = getLoreTableSchema(category);
   if (columns.length === 1 && columns[0] === "Запись") {
     return String(row.Запись || "").trim();
+  }
+  const normalized = normalizedLoreCategory(category);
+  if (normalized === "народы") {
+    const title = String(row["Название"] || "").trim();
+    const parts = [
+      title,
+      row["Бонусы"] ? `Бонусы: ${String(row["Бонусы"]).trim()}` : "",
+      row["Тип"] ? `Тип: ${String(row["Тип"]).trim()}` : "",
+      row["Размер"] ? `Размер: ${String(row["Размер"]).trim()}` : "",
+      row["Способности"] ? `Способности: ${String(row["Способности"]).trim()}` : "",
+      row["Пометка"] ? `Пометка: ${String(row["Пометка"]).trim()}` : "",
+      row["Описание"] ? `Описание: ${String(row["Описание"]).trim()}` : ""
+    ].filter(Boolean);
+    return parts.join(". ");
   }
   return columns
     .map((column) => {
@@ -571,7 +606,19 @@ function renderLoreTableRows(category, rows) {
       const cells = columns
         .map((column) => {
           const value = String(row[column] || "");
+          const options = getLoreTableSelectOptions(category, column);
           const multiline = value.length > 90 || column === "Описание" || column === "Заметки" || column === "Способности";
+          if (options) {
+            return `<td><select data-column="${escapeHtml(column)}">
+              <option value="">Выбрать</option>
+              ${options
+                .map(
+                  (option) =>
+                    `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`
+                )
+                .join("")}
+            </select></td>`;
+          }
           return `<td>${
             multiline
               ? `<textarea data-column="${escapeHtml(column)}" rows="3" placeholder="${escapeHtml(column)}">${escapeHtml(value)}</textarea>`
