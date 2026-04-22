@@ -135,6 +135,8 @@ const views = Array.from(document.querySelectorAll(".screen"));
 const navItems = Array.from(document.querySelectorAll(".nav-item"));
 const authScreen = document.getElementById("authScreen");
 const appShell = document.getElementById("appShell");
+const loadingScreen = document.getElementById("loadingScreen");
+const loadingText = document.getElementById("loadingText");
 const authForm = document.getElementById("authForm");
 const authError = document.getElementById("authError");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -935,6 +937,14 @@ function applyTheme(themeId) {
     document.documentElement.style.setProperty(key, value)
   );
   updateThemeButtons();
+}
+
+function setLoadingState(loading, message = "") {
+  if (!loadingScreen) return;
+  loadingScreen.classList.toggle("is-hidden", !loading);
+  if (loadingText && message) {
+    loadingText.textContent = message;
+  }
 }
 
 function renderThemeControls() {
@@ -2102,6 +2112,7 @@ async function handleAuthSubmit(event) {
   event.preventDefault();
   authError.textContent = "";
   const data = new FormData(authForm);
+  setLoadingState(true, "Череп хранителя ищет твой след среди страниц...");
   try {
     await api("/api/login", {
       method: "POST",
@@ -2117,6 +2128,8 @@ async function handleAuthSubmit(event) {
     refreshAll();
   } catch (error) {
     authError.textContent = error.message || "Не удалось войти.";
+  } finally {
+    setLoadingState(false);
   }
 }
 
@@ -2598,6 +2611,7 @@ async function init() {
   bindEvents();
   renderThemeControls();
   applyTheme(currentThemeId);
+  setLoadingState(true, "Вызываем чернильных духов и собираем страницы воедино...");
 
   try {
     await loadBootstrap();
@@ -2613,6 +2627,8 @@ async function init() {
     if (error.status && error.status !== 401) {
       authError.textContent = "Сервер книги недоступен. Проверь запуск backend.";
     }
+  } finally {
+    setLoadingState(false);
   }
 }
 
