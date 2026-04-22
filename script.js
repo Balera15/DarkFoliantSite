@@ -224,6 +224,7 @@ let runtimeSyncBusy = false;
 let characterRuntimeRequestSeq = 0;
 const latestCharacterRuntimeRequest = new Map();
 const pendingCharacterRuntimeSnapshots = new Map();
+let loadingStartedAt = 0;
 
 let state = {
   view: "bestiary",
@@ -941,10 +942,29 @@ function applyTheme(themeId) {
 
 function setLoadingState(loading, message = "") {
   if (!loadingScreen) return;
+  if (loading) {
+    loadingStartedAt = Date.now();
+    document.body.classList.add("boot-loading");
+  }
   loadingScreen.classList.toggle("is-hidden", !loading);
   if (loadingText && message) {
     loadingText.textContent = message;
   }
+  if (!loading) {
+    document.body.classList.remove("boot-loading");
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function finishLoadingState(minDuration = 700) {
+  const elapsed = Date.now() - loadingStartedAt;
+  if (elapsed < minDuration) {
+    await wait(minDuration - elapsed);
+  }
+  setLoadingState(false);
 }
 
 function renderThemeControls() {
@@ -2129,7 +2149,7 @@ async function handleAuthSubmit(event) {
   } catch (error) {
     authError.textContent = error.message || "Не удалось войти.";
   } finally {
-    setLoadingState(false);
+    await finishLoadingState(800);
   }
 }
 
@@ -2628,7 +2648,7 @@ async function init() {
       authError.textContent = "Сервер книги недоступен. Проверь запуск backend.";
     }
   } finally {
-    setLoadingState(false);
+    await finishLoadingState(900);
   }
 }
 

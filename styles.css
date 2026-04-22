@@ -86,6 +86,11 @@ button {
   padding: 20px;
 }
 
+body.boot-loading .auth-screen,
+body.boot-loading .app-shell {
+  visibility: hidden;
+}
+
 .loading-screen__veil {
   position: absolute;
   inset: 0;
@@ -105,6 +110,7 @@ button {
   gap: 12px;
   padding: 28px 22px 24px;
   text-align: center;
+  animation: loader-rise 0.45s ease;
 }
 
 .loading-screen__sigil {
@@ -218,6 +224,18 @@ button {
 
   100% {
     transform: translateX(105%);
+  }
+}
+
+@keyframes loader-rise {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
