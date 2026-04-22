@@ -148,12 +148,14 @@ const settingsLogoutBtn = document.getElementById("settingsLogoutBtn");
 const gameToggleBtn = document.getElementById("gameToggleBtn");
 const gameStateLabel = document.getElementById("gameStateLabel");
 const bestiaryGrid = document.getElementById("bestiaryGrid");
+const bestiaryPlayerHint = document.getElementById("bestiaryPlayerHint");
 const searchInput = document.getElementById("creatureSearch");
 const filterButtons = Array.from(document.querySelectorAll("[data-filter]"));
 const themeList = document.getElementById("themeList");
 const loreTabs = document.getElementById("loreTabs");
 const loreContent = document.getElementById("loreContent");
 const loreSearch = document.getElementById("loreSearch");
+const lorePeopleHint = document.getElementById("lorePeopleHint");
 const journalField = document.getElementById("sessionNotes");
 const saveNotesBtn = document.getElementById("saveNotes");
 const clearNotesBtn = document.getElementById("clearNotes");
@@ -259,6 +261,10 @@ function saveUiState() {
 
 function isDm() {
   return currentUser?.role === "dm";
+}
+
+function isPlayer() {
+  return currentUser?.role === "player";
 }
 
 function isDesktopDm() {
@@ -1070,6 +1076,8 @@ function renderBestiary() {
     return matchesFilter && matchesQuery;
   });
 
+  bestiaryPlayerHint?.classList.toggle("is-hidden", !isPlayer());
+
   bestiaryGrid.innerHTML = entries
     .map(
       (creature) => {
@@ -1119,6 +1127,10 @@ function renderLore() {
 
   if (activeEntry) state.selectedLoreId = activeEntry.id;
   if (loreSearch && loreSearch.value !== state.loreQuery) loreSearch.value = state.loreQuery;
+  lorePeopleHint?.classList.toggle(
+    "is-hidden",
+    !(isPlayer() && activeEntry && String(activeEntry.category).trim().toLowerCase() === "народы")
+  );
 
   loreTabs.innerHTML = filteredLore
     .map(
@@ -1130,11 +1142,13 @@ function renderLore() {
     .join("");
 
   if (!filteredLore.length) {
+    lorePeopleHint?.classList.add("is-hidden");
     loreContent.innerHTML = `<div class="lore-empty">По этому запросу ничего не найдено.</div>`;
     return;
   }
 
   if (!activeEntry) {
+    lorePeopleHint?.classList.add("is-hidden");
     loreContent.innerHTML = `<div class="lore-empty">Пока нет записей лора.</div>`;
     return;
   }
