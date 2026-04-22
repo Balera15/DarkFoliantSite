@@ -1878,6 +1878,24 @@ body.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="lo
   grid-column: 1 / -1;
 }
 
+html.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active),
+body.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active),
+.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) > .screen[data-view="dm"],
+body.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) > .screen[data-view="dm"],
+.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) > .screen[data-view="dm"] {
+  display: none !important;
+}
+
+html.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) > .screen[data-view="lore"],
+body.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) > .screen[data-view="lore"],
+.dm-desktop-mode .workspace:has(> .screen[data-view="lore"].is-active) > .screen[data-view="lore"] {
+  grid-column: 1 / -1;
+}
+
 html.dm-desktop-mode .workspace > .screen[data-view="bestiary"],
 body.dm-desktop-mode .workspace > .screen[data-view="bestiary"],
 .dm-desktop-mode .workspace > .screen[data-view="bestiary"] { order: 1; }
