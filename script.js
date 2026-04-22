@@ -461,10 +461,11 @@ function parseLoreRecord(text) {
 }
 
 function parseLabeledLoreRecord(text, labels) {
-  const source = String(text || "").trim();
-  const labelPattern = new RegExp(`(?:^|\\.\\s+)(${labels.join("|")}):\\s*`, "g");
-  const firstLabelMatch = labelPattern.exec(source);
-  if (!firstLabelMatch) return null;
+    const source = String(text || "").trim();
+    const escapedLabels = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const labelPattern = new RegExp(`(?:^|\\.\\s+)(${escapedLabels.join("|")}):\\s*`, "g");
+    const firstLabelMatch = labelPattern.exec(source);
+    if (!firstLabelMatch) return null;
 
   const sections = [];
   let currentLabel = firstLabelMatch[1];
@@ -481,8 +482,53 @@ function parseLabeledLoreRecord(text, labels) {
     nextMatch = labelPattern.exec(source);
   }
 
-  return Object.fromEntries(sections.map((section) => [section.label, section.value]));
-}
+    return Object.fromEntries(sections.map((section) => [section.label, section.value]));
+  }
+
+  function isBrokenLoreName(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return true;
+    return /^(название|бонусы|тип|размер|способности|пометка|описание)\s*:/.test(normalized);
+  }
+
+  function stripKnownLoreLabelPrefix(value) {
+    let normalized = String(value || "").trim();
+    while (/^(название|бонусы|тип|размер|способности|пометка|описание)\s*:/i.test(normalized)) {
+      normalized = normalized.replace(
+        /^(название|бонусы|тип|размер|способности|пометка|описание)\s*:\s*/i,
+        ""
+      ).trim();
+    }
+    return normalized;
+  }
+
+  function isMisplacedLoreName(name, row = {}) {
+    const normalizedName = String(name || "").trim().toLowerCase();
+    if (!normalizedName) return true;
+    const peers = [row["Бонусы"], row["Тип"], row["Размер"]]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean);
+    return peers.includes(normalizedName);
+  }
+
+  function sanitizeLoreFieldValue(label, value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const normalizedLabel = String(label || "").trim().toLowerCase();
+    const labelMap = {
+      "название": "Название",
+      "бонусы": "Бонусы",
+      "тип": "Тип",
+      "размер": "Размер",
+      "способности": "Способности",
+      "пометка": "Пометка",
+      "описание": "Описание"
+    };
+    const displayLabel = labelMap[normalizedLabel];
+    const withoutGenericPrefix = stripKnownLoreLabelPrefix(raw);
+    if (!displayLabel) return withoutGenericPrefix;
+    return withoutGenericPrefix.replace(new RegExp(`^${displayLabel}:\\s*`, "i"), "").trim();
+  }
 
 function normalizedLoreCategory(category) {
   return String(category || "").trim().toLowerCase();
@@ -516,30 +562,39 @@ function getLoreTableSelectOptions(category, column) {
   return null;
 }
 
-function parseLoreItemForTable(category, item) {
-  const columns = getLoreTableSchema(category);
-  if (columns.length === 1 && columns[0] === "Запись") {
-    return { Запись: String(item || "").trim() };
-  }
-  const normalized = normalizedLoreCategory(category);
-  if (normalized === "народы") {
-    const parsed = parseLabeledLoreRecord(item, columns);
-    const fallback = parseLoreRecord(item);
-    if (parsed) {
-      return {
-        Название: parsed["Название"] || fallback?.name || "",
-        Бонусы: parsed["Бонусы"] || fallback?.bonus || "",
-        Тип: parsed["Тип"] || fallback?.type || "",
-        Размер: parsed["Размер"] || fallback?.size || "",
-        Способности: parsed["Способности"] || fallback?.abilities || "",
-        Пометка: parsed["Пометка"] || fallback?.note || "",
-        Описание: parsed["Описание"] || fallback?.description || ""
-      };
+  function parseLoreItemForTable(category, item) {
+    const columns = getLoreTableSchema(category);
+    if (columns.length === 1 && columns[0] === "Запись") {
+      return { Запись: String(item || "").trim() };
     }
-    if (!fallback) return Object.fromEntries(columns.map((column) => [column, ""]));
-    return {
-      Название: fallback.name || "",
-      Бонусы: fallback.bonus || "",
+    const normalized = normalizedLoreCategory(category);
+    if (normalized === "народы") {
+      const parsed = parseLabeledLoreRecord(item, columns);
+      const fallback = parseLoreRecord(item);
+      const resolved = {
+        Название: sanitizeLoreFieldValue("Название", parsed?.["Название"] || fallback?.name || ""),
+        Бонусы: sanitizeLoreFieldValue("Бонусы", parsed?.["Бонусы"] || fallback?.bonus || ""),
+        Тип: sanitizeLoreFieldValue("Тип", parsed?.["Тип"] || fallback?.type || ""),
+        Размер: sanitizeLoreFieldValue("Размер", parsed?.["Размер"] || fallback?.size || ""),
+        Способности: sanitizeLoreFieldValue("Способности", parsed?.["Способности"] || fallback?.abilities || ""),
+        Пометка: sanitizeLoreFieldValue("Пометка", parsed?.["Пометка"] || fallback?.note || ""),
+        Описание: sanitizeLoreFieldValue("Описание", parsed?.["Описание"] || fallback?.description || "")
+      };
+      if (isBrokenLoreName(resolved["Название"]) || isMisplacedLoreName(resolved["Название"], resolved)) {
+        const fallbackName = stripKnownLoreLabelPrefix(fallback?.name || "");
+        resolved["Название"] =
+          isBrokenLoreName(fallbackName) || isMisplacedLoreName(fallbackName, resolved) ? "" : fallbackName;
+      }
+      if (!resolved["Название"] && fallback?.name) {
+        resolved["Название"] = fallback.name;
+      }
+      if (Object.values(resolved).some((value) => String(value || "").trim())) {
+        return resolved;
+      }
+      if (!fallback) return Object.fromEntries(columns.map((column) => [column, ""]));
+      return {
+        Название: fallback.name || "",
+        Бонусы: fallback.bonus || "",
       Тип: fallback.type || "",
       Размер: fallback.size || "",
       Способности: fallback.abilities || "",
@@ -550,25 +605,25 @@ function parseLoreItemForTable(category, item) {
   return parseLabeledLoreRecord(item, columns) || Object.fromEntries(columns.map((column) => [column, ""]));
 }
 
-function buildLoreItemFromTable(category, row) {
-  const columns = getLoreTableSchema(category);
-  if (columns.length === 1 && columns[0] === "Запись") {
-    return String(row.Запись || "").trim();
-  }
-  const normalized = normalizedLoreCategory(category);
-  if (normalized === "народы") {
-    const title = String(row["Название"] || "").trim();
-    const parts = [
-      title,
-      row["Бонусы"] ? `Бонусы: ${String(row["Бонусы"]).trim()}` : "",
-      row["Тип"] ? `Тип: ${String(row["Тип"]).trim()}` : "",
-      row["Размер"] ? `Размер: ${String(row["Размер"]).trim()}` : "",
-      row["Способности"] ? `Способности: ${String(row["Способности"]).trim()}` : "",
-      row["Пометка"] ? `Пометка: ${String(row["Пометка"]).trim()}` : "",
-      row["Описание"] ? `Описание: ${String(row["Описание"]).trim()}` : ""
-    ].filter(Boolean);
-    return parts.join(". ");
-  }
+  function buildLoreItemFromTable(category, row) {
+    const columns = getLoreTableSchema(category);
+    if (columns.length === 1 && columns[0] === "Запись") {
+      return String(row.Запись || "").trim();
+    }
+    const normalized = normalizedLoreCategory(category);
+    if (normalized === "народы") {
+      const title = sanitizeLoreFieldValue("Название", row["Название"]);
+      const parts = [
+        title,
+        row["Бонусы"] ? `Бонусы: ${sanitizeLoreFieldValue("Бонусы", row["Бонусы"])}` : "",
+        row["Тип"] ? `Тип: ${sanitizeLoreFieldValue("Тип", row["Тип"])}` : "",
+        row["Размер"] ? `Размер: ${sanitizeLoreFieldValue("Размер", row["Размер"])}` : "",
+        row["Способности"] ? `Способности: ${sanitizeLoreFieldValue("Способности", row["Способности"])}` : "",
+        row["Пометка"] ? `Пометка: ${sanitizeLoreFieldValue("Пометка", row["Пометка"])}` : "",
+        row["Описание"] ? `Описание: ${sanitizeLoreFieldValue("Описание", row["Описание"])}` : ""
+      ].filter(Boolean);
+      return parts.join(". ");
+    }
   return columns
     .map((column) => {
       const value = String(row[column] || "").trim();

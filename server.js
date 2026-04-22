@@ -251,13 +251,151 @@ function normalizeStats(stats = {}) {
 }
 
 function normalizeLoreEntry(entry) {
-  return {
-    id: entry.id || createId("lore"),
-    category: String(entry.category || "").trim(),
-    tone: String(entry.tone || "lore-tone--ember").trim() || "lore-tone--ember",
-    items: Array.isArray(entry.items) ? entry.items.map((item) => String(item).trim()).filter(Boolean) : []
-  };
-}
+    return {
+      id: entry.id || createId("lore"),
+      category: String(entry.category || "").trim(),
+      tone: String(entry.tone || "lore-tone--ember").trim() || "lore-tone--ember",
+      items: Array.isArray(entry.items) ? entry.items.map((item) => String(item).trim()).filter(Boolean) : []
+    };
+  }
+
+  function parsePeopleLoreRecord(text) {
+    const source = String(text || "").trim();
+    const labelPattern = /\.(?:\s+)(Бонусы|Тип|Описание|Способности|Пометка):\s*/g;
+    const firstLabelMatch = labelPattern.exec(source);
+    if (!firstLabelMatch) return null;
+
+    const name = source.slice(0, firstLabelMatch.index).trim().replace(/\.$/, "");
+    const sections = [];
+    let currentLabel = firstLabelMatch[1];
+    let valueStart = labelPattern.lastIndex;
+    let nextMatch = labelPattern.exec(source);
+
+    while (currentLabel) {
+      const end = nextMatch ? nextMatch.index : source.length;
+      const value = source.slice(valueStart, end).trim().replace(/\.$/, "");
+      sections.push({ label: currentLabel, value });
+      if (!nextMatch) break;
+      currentLabel = nextMatch[1];
+      valueStart = labelPattern.lastIndex;
+      nextMatch = labelPattern.exec(source);
+    }
+
+    const mapped = Object.fromEntries(sections.map((section) => [section.label, section.value]));
+    const description = mapped["Описание"] || "";
+    const sizeMatch = description.match(/Размер\s+[^.]+/i);
+    const size = sizeMatch ? sizeMatch[0].replace(/^Размер\s+/i, "").trim() : "";
+    const trimmedDescription = sizeMatch
+      ? description.replace(sizeMatch[0], "").replace(/\s+\.$/, ".").trim().replace(/\.$/, "")
+      : description;
+    return {
+      name,
+      bonus: mapped["Бонусы"] || "",
+      type: mapped["Тип"] || "",
+      size,
+      abilities: mapped["Способности"] || "",
+      note: mapped["Пометка"] || "",
+      description: trimmedDescription
+    };
+  }
+
+  function isBrokenPeopleLoreName(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return true;
+    return /^(название|бонусы|тип|размер|способности|пометка|описание)\s*:/.test(normalized);
+  }
+
+  function stripKnownLoreLabelPrefix(value) {
+    let normalized = String(value || "").trim();
+    while (/^(название|бонусы|тип|размер|способности|пометка|описание)\s*:/i.test(normalized)) {
+      normalized = normalized.replace(
+        /^(название|бонусы|тип|размер|способности|пометка|описание)\s*:\s*/i,
+        ""
+      ).trim();
+    }
+    return normalized;
+  }
+
+  function isMisplacedPeopleLoreName(name, row = {}) {
+    const normalizedName = String(name || "").trim().toLowerCase();
+    if (!normalizedName) return true;
+    const peers = [row.bonus, row.type, row.size]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean);
+    return peers.includes(normalizedName);
+  }
+
+  function buildPeopleLoreRecord(row) {
+    const parts = [
+      String(row.name || "").trim(),
+      row.bonus ? `Бонусы: ${String(row.bonus).trim()}` : "",
+      row.type ? `Тип: ${String(row.type).trim()}` : "",
+      row.size ? `Размер: ${String(row.size).trim()}` : "",
+      row.abilities ? `Способности: ${String(row.abilities).trim()}` : "",
+      row.note ? `Пометка: ${String(row.note).trim()}` : "",
+      row.description ? `Описание: ${String(row.description).trim()}` : ""
+    ].filter(Boolean);
+    return parts.join(". ");
+  }
+
+  function repairPeopleLoreItems(items, seedItems = []) {
+    const parsedSeed = seedItems
+      .map((item) => parsePeopleLoreRecord(item))
+      .filter(Boolean);
+
+    let changed = false;
+    const repaired = items.map((item) => {
+      const source = String(item || "").trim();
+      if (!source) return source;
+
+      const parsedLabeled = parseLabeledLoreRecord(source, [
+        "Название",
+        "Бонусы",
+        "Тип",
+        "Размер",
+        "Способности",
+        "Пометка",
+        "Описание"
+      ]);
+      const parsedClassic = parsePeopleLoreRecord(source);
+
+      const row = {
+        name: stripKnownLoreLabelPrefix(parsedLabeled?.Название || parsedClassic?.name || ""),
+        bonus: stripKnownLoreLabelPrefix(parsedLabeled?.Бонусы || parsedClassic?.bonus || ""),
+        type: stripKnownLoreLabelPrefix(parsedLabeled?.Тип || parsedClassic?.type || ""),
+        size: stripKnownLoreLabelPrefix(parsedLabeled?.Размер || parsedClassic?.size || ""),
+        abilities: stripKnownLoreLabelPrefix(parsedLabeled?.Способности || parsedClassic?.abilities || ""),
+        note: stripKnownLoreLabelPrefix(parsedLabeled?.Пометка || parsedClassic?.note || ""),
+        description: stripKnownLoreLabelPrefix(parsedLabeled?.Описание || parsedClassic?.description || "")
+      };
+
+      if (isBrokenPeopleLoreName(row.name) || isMisplacedPeopleLoreName(row.name, row)) {
+        const bestMatch = parsedSeed
+          .map((seedRow) => {
+            let score = 0;
+            if (seedRow.bonus && seedRow.bonus === row.bonus) score += 2;
+            if (seedRow.type && seedRow.type === row.type) score += 2;
+            if (seedRow.size && seedRow.size === row.size) score += 1;
+            if (seedRow.abilities && seedRow.abilities === row.abilities) score += 1;
+            if (seedRow.note && seedRow.note === row.note) score += 1;
+            if (seedRow.description && seedRow.description === row.description) score += 3;
+            return { seedRow, score };
+          })
+          .sort((left, right) => right.score - left.score)[0];
+
+        if (bestMatch && bestMatch.score >= 3) {
+          row.name = bestMatch.seedRow.name;
+        }
+      }
+
+      if (!row.name) return source;
+      const rebuilt = buildPeopleLoreRecord(row);
+      if (rebuilt !== source) changed = true;
+      return rebuilt;
+    });
+
+    return { items: repaired, changed };
+  }
 
 function normalizeDangerLevel(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -328,17 +466,30 @@ function normalizeDb(value) {
 }
 
 function loadDb() {
-  if (!fs.existsSync(DB_PATH)) {
-    const seeded = loadSeedDb();
-    saveDb(seeded);
-    return seeded;
+    if (!fs.existsSync(DB_PATH)) {
+      const seeded = loadSeedDb();
+      saveDb(seeded);
+      return seeded;
   }
-  try {
-    return normalizeDb(JSON.parse(fs.readFileSync(DB_PATH, "utf8")));
-  } catch {
-    const seeded = loadSeedDb();
-    saveDb(seeded);
-    return seeded;
+    try {
+      const loaded = normalizeDb(JSON.parse(fs.readFileSync(DB_PATH, "utf8")));
+      const seedDb = loadSeedDb();
+      const nextLore = loaded.lore.map((entry) => {
+        if (String(entry.category || "").trim().toLowerCase() !== "народы") return entry;
+        const seedEntry =
+          seedDb.lore.find((item) => String(item.category || "").trim().toLowerCase() === "народы") || null;
+        const repaired = repairPeopleLoreItems(entry.items, seedEntry?.items || []);
+        return repaired.changed ? { ...entry, items: repaired.items } : entry;
+      });
+      const nextDb = { ...loaded, lore: nextLore };
+      if (JSON.stringify(nextDb.lore) !== JSON.stringify(loaded.lore)) {
+        fs.writeFileSync(DB_PATH, JSON.stringify(nextDb, null, 2), "utf8");
+      }
+      return nextDb;
+    } catch {
+      const seeded = loadSeedDb();
+      saveDb(seeded);
+      return seeded;
   }
 }
 
