@@ -221,6 +221,7 @@ let runtimeSyncTimer = null;
 let runtimeSyncBusy = false;
 let characterRuntimeRequestSeq = 0;
 const latestCharacterRuntimeRequest = new Map();
+const pendingCharacterRuntimeSnapshots = new Map();
 
 let state = {
   view: "bestiary",
@@ -1421,7 +1422,15 @@ function applyCharacterRuntimePatchLocally(characterId, patch = {}) {
     inventory: hasInventory && Array.isArray(patch.inventory) ? [...patch.inventory] : currentCharacter.inventory
   };
   db.characters[characterIndex] = nextCharacter;
+  pendingCharacterRuntimeSnapshots.set(characterId, { ...nextCharacter, inventory: [...(nextCharacter.inventory || [])] });
   return currentCharacter;
+}
+
+function mergeRuntimeCharactersWithPending(nextCharacters = []) {
+  return nextCharacters.map((character) => {
+    const pendingSnapshot = pendingCharacterRuntimeSnapshots.get(character.id);
+    return pendingSnapshot ? { ...pendingSnapshot, inventory: [...(pendingSnapshot.inventory || [])] } : character;
+  });
 }
 
 async function updateCharacterRuntime(characterId, patch) {
@@ -1435,6 +1444,7 @@ async function updateCharacterRuntime(characterId, patch) {
       body: patch
     });
     if (latestCharacterRuntimeRequest.get(characterId) !== requestSeq) return;
+    pendingCharacterRuntimeSnapshots.delete(characterId);
     if (payload?.user) {
       applyBootstrap(payload);
     } else if (previousCharacter) {
@@ -1443,6 +1453,7 @@ async function updateCharacterRuntime(characterId, patch) {
     refreshAll();
   } catch (error) {
     if (latestCharacterRuntimeRequest.get(characterId) === requestSeq && previousCharacter) {
+      pendingCharacterRuntimeSnapshots.delete(characterId);
       const characterIndex = db.characters.findIndex((entry) => entry.id === characterId);
       if (characterIndex >= 0) {
         db.characters[characterIndex] = previousCharacter;
@@ -1493,7 +1504,9 @@ async function syncRuntimeState() {
   runtimeSyncBusy = true;
   try {
     const runtime = await api("/api/runtime");
-    const nextCharacters = Array.isArray(runtime?.characters) ? runtime.characters : [];
+    const nextCharacters = mergeRuntimeCharactersWithPending(
+      Array.isArray(runtime?.characters) ? runtime.characters : []
+    );
     const nextCharacterRequests = Array.isArray(runtime?.characterRequests) ? runtime.characterRequests : [];
     const nextGame = runtime?.game && typeof runtime.game === "object"
       ? { isActive: Boolean(runtime.game.isActive) }
