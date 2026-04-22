@@ -418,10 +418,10 @@ function matchesLoreQuery(entry, query) {
 }
 
 function parseLoreRecord(text) {
-  const source = String(text || "").trim();
-  const labelPattern = /\.(?:\s+)(Бонусы|Тип|Описание|Способности|Пометка):\s*/g;
-  const firstLabelMatch = labelPattern.exec(source);
-  if (!firstLabelMatch) return null;
+    const source = String(text || "").trim();
+    const labelPattern = /\.(?:\s+)(Бонусы|Тип|Размер|Описание|Способности|Пометка):\s*/g;
+    const firstLabelMatch = labelPattern.exec(source);
+    if (!firstLabelMatch) return null;
 
   const name = source.slice(0, firstLabelMatch.index).trim().replace(/\.$/, "");
   if (!name) return null;
@@ -441,13 +441,13 @@ function parseLoreRecord(text) {
     nextMatch = labelPattern.exec(source);
   }
 
-  const mapped = Object.fromEntries(sections.map((section) => [section.label, section.value]));
-  const description = mapped["Описание"] || "";
-  const sizeMatch = description.match(/Размер\s+[^.]+/i);
-  const size = sizeMatch ? sizeMatch[0].replace(/^Размер\s+/i, "").trim() : "";
-  const trimmedDescription = sizeMatch
-    ? description.replace(sizeMatch[0], "").replace(/\s+\.$/, ".").trim().replace(/\.$/, "")
-    : description;
+    const mapped = Object.fromEntries(sections.map((section) => [section.label, section.value]));
+    const description = mapped["Описание"] || "";
+    const sizeMatch = !mapped["Размер"] ? description.match(/Размер\s+[^.]+/i) : null;
+    const size = mapped["Размер"] || (sizeMatch ? sizeMatch[0].replace(/^Размер\s+/i, "").trim() : "");
+    const trimmedDescription = sizeMatch
+      ? description.replace(sizeMatch[0], "").replace(/\s+\.$/, ".").trim().replace(/\.$/, "")
+      : description;
 
   return {
     name,
