@@ -146,15 +146,18 @@ body.boot-loading .app-shell {
   border-color: rgba(232, 210, 173, 0.11);
 }
 
-.loading-screen__skull {
+.loading-screen__sigil-art {
   position: relative;
   z-index: 1;
-  color: #f1dcc0;
-  font-size: 3.4rem;
-  line-height: 1;
-  text-shadow:
-    0 0 18px rgba(212, 160, 93, 0.32),
-    0 0 40px rgba(212, 160, 93, 0.16);
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 12px rgba(212, 160, 93, 0.26))
+    drop-shadow(0 0 28px rgba(212, 160, 93, 0.15))
+    saturate(0.92)
+    brightness(1.02);
   animation: skull-pulse 1.8s ease-in-out infinite;
 }
 
