@@ -216,6 +216,7 @@ let currentThemeId = localStorage.getItem(PREF_KEYS.theme) || "ember";
 let journalSaveTimer = null;
 let loreSearchAnchorTop = 0;
 let activeRacePreview = null;
+let lastModalTrigger = null;
 let runtimeSyncTimer = null;
 let runtimeSyncBusy = false;
 
@@ -1220,6 +1221,9 @@ function resolveActiveCharacter() {
 }
 
 function renderCharacterCard(character, options = {}) {
+  if (!character) {
+    return `<article class="panel"><p class="admin-empty">Персонаж не найден.</p></article>`;
+  }
   const { showPreviewSelector = false, compact = false } = options;
   const image = safeMediaUrl(character.image);
   const playerCanAct = canPlayerActInSession(character);
@@ -1370,6 +1374,11 @@ function renderCharacterView() {
     characterView.innerHTML = pendingRequest
       ? ""
       : `<article class="panel"><p class="admin-empty">У этого игрока пока нет подтверждённого персонажа. Заполни заявку выше, и мастер доведёт героя до полноценной карточки.</p></article>`;
+    return;
+  }
+
+  if (!character && isDm() && !db.characters.length) {
+    characterView.innerHTML = `<article class="panel"><p class="admin-empty">Пока нет ни одной карточки персонажа. Создай персонажа в управлении DM.</p></article>`;
     return;
   }
 
@@ -1794,6 +1803,8 @@ function populateBestiaryForm(creature) {
 
 function openMediaModal(payload) {
   if (!mediaModal || !mediaModalFrame || !mediaModalTitle || !mediaModalEyebrow) return;
+  lastModalTrigger =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
   activeRacePreview = payload?.kind === "lore-race" ? { ...payload } : null;
   const { eyebrow, title, image } = payload || {};
   const source = safeMediaUrl(image);
@@ -1809,15 +1820,40 @@ function openMediaModal(payload) {
   mediaModal.classList.remove("is-hidden");
   mediaModal.setAttribute("aria-hidden", "false");
   updateRaceImageManager();
+  mediaModalClose?.focus();
+}
+
+function focusOutsideHiddenModal() {
+  const focusTarget =
+    lastModalTrigger && document.contains(lastModalTrigger)
+      ? lastModalTrigger
+      : appShell || document.body;
+  if (!(focusTarget instanceof HTMLElement)) return;
+  const hadTabIndex = focusTarget.hasAttribute("tabindex");
+  const previousTabIndex = focusTarget.getAttribute("tabindex");
+  if (!hadTabIndex) {
+    focusTarget.setAttribute("tabindex", "-1");
+  }
+  focusTarget.focus({ preventScroll: true });
+  if (!hadTabIndex) {
+    focusTarget.removeAttribute("tabindex");
+  } else if (previousTabIndex !== null) {
+    focusTarget.setAttribute("tabindex", previousTabIndex);
+  }
 }
 
 function closeMediaModal() {
   if (!mediaModal || !mediaModalFrame) return;
+  if (document.activeElement instanceof HTMLElement && mediaModal.contains(document.activeElement)) {
+    focusOutsideHiddenModal();
+  }
   activeRacePreview = null;
   mediaModal.classList.add("is-hidden");
   mediaModal.setAttribute("aria-hidden", "true");
   mediaModalFrame.innerHTML = "";
   updateRaceImageManager();
+  focusOutsideHiddenModal();
+  lastModalTrigger = null;
 }
 
 function updateFloatingLoreSearch() {
