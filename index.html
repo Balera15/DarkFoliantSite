@@ -74,6 +74,7 @@
         </div>
         <form id="bestiaryForm" class="bestiary-editor panel dm-only is-hidden">
           <input type="hidden" name="id">
+          <input type="hidden" name="currentImage">
           <div class="lore-editor__head">
             <div>
               <p class="lore-editor__eyebrow">Редактор DM</p>
@@ -118,10 +119,10 @@
             <span>Описание</span>
             <textarea name="description" rows="4"></textarea>
           </label>
-          <label class="auth-field">
-            <span>Изображение существа</span>
-            <input type="text" name="image" placeholder="https://...">
-          </label>
+            <label class="auth-field">
+              <span>Изображение существа</span>
+              <input type="file" name="imageFile" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+            </label>
           <div class="journal-actions">
             <button class="action-btn" type="submit">Сохранить существо</button>
             <button class="ghost-btn" type="button" id="bestiaryFormReset">Сбросить</button>
@@ -336,6 +337,7 @@
             <form id="characterForm" class="admin-form">
               <input type="hidden" name="id">
               <input type="hidden" name="requestId">
+              <input type="hidden" name="currentImage">
               <div class="field-grid">
                 <label class="auth-field">
                   <span>Имя</span>
@@ -361,10 +363,10 @@
                   <span>Броня</span>
                   <input type="number" name="armor" min="0">
                 </label>
-                <label class="auth-field field-grid__wide">
-                  <span>Изображение персонажа</span>
-                  <input type="text" name="image" placeholder="https://...">
-                </label>
+                  <label class="auth-field field-grid__wide">
+                    <span>Изображение персонажа</span>
+                    <input type="file" name="imageFile" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+                  </label>
               </div>
               <div class="field-grid field-grid--stats">
                 <label class="auth-field"><span>Сила</span><input type="number" name="strength" min="0"></label>
@@ -405,13 +407,14 @@
             <div class="admin-list" id="characterRequestList"></div>
           </article>
 
-          <article class="panel admin-section">
-            <h3>Карта</h3>
-            <form id="mapForm" class="admin-form">
-              <label class="auth-field">
-                <span>Ссылка на карту</span>
-                <input type="text" name="src" placeholder="assets/map.svg">
-              </label>
+            <article class="panel admin-section">
+              <h3>Карта</h3>
+              <form id="mapForm" class="admin-form">
+                <input type="hidden" name="currentSrc">
+                <label class="auth-field">
+                  <span>Файл карты</span>
+                  <input type="file" name="mapFile" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+                </label>
               <label class="auth-field">
                 <span>Подпись</span>
                 <input type="text" name="note" placeholder="Путеводная карта">

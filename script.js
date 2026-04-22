@@ -1668,9 +1668,10 @@ function renderCharacterRequestState() {
 }
 
 function fillAdminForms() {
-  mapForm.elements.src.value = db.map.src || "";
-  mapForm.elements.note.value = db.map.note || "";
-}
+    mapForm.elements.currentSrc.value = db.map.src || "";
+    if (mapForm.elements.mapFile) mapForm.elements.mapFile.value = "";
+    mapForm.elements.note.value = db.map.note || "";
+  }
 
 function renderAdminPanels() {
   if (!isDm()) {
@@ -1691,22 +1692,23 @@ function resetUserForm() {
 }
 
 function resetCharacterForm() {
-  characterForm.reset();
-  characterForm.elements.id.value = "";
-  characterForm.elements.requestId.value = "";
-  if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Сохранить персонажа";
-}
+    characterForm.reset();
+    characterForm.elements.id.value = "";
+    characterForm.elements.requestId.value = "";
+    characterForm.elements.currentImage.value = "";
+    if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Сохранить персонажа";
+  }
 
 function resetBestiaryForm() {
-  if (!bestiaryForm) return;
-  bestiaryForm.reset();
-  bestiaryForm.elements.id.value = "";
-  bestiaryForm.elements.type.value = "wild";
-  bestiaryForm.elements.dangerLevel.value = "medium";
-  bestiaryForm.elements.image.value = "";
-  if (bestiaryEditorTitle) bestiaryEditorTitle.textContent = "Новое существо";
-  if (bestiaryEditorDelete) bestiaryEditorDelete.disabled = true;
-}
+    if (!bestiaryForm) return;
+    bestiaryForm.reset();
+    bestiaryForm.elements.id.value = "";
+    bestiaryForm.elements.type.value = "wild";
+    bestiaryForm.elements.dangerLevel.value = "medium";
+    bestiaryForm.elements.currentImage.value = "";
+    if (bestiaryEditorTitle) bestiaryEditorTitle.textContent = "Новое существо";
+    if (bestiaryEditorDelete) bestiaryEditorDelete.disabled = true;
+  }
 
 function resetLoreForm() {
   if (!loreQuickForm) return;
@@ -1750,26 +1752,29 @@ function populateCharacterForm(character) {
   characterForm.elements.wisdom.value = character.stats.wisdom;
   characterForm.elements.intelligence.value = character.stats.intelligence;
   characterForm.elements.charisma.value = character.stats.charisma;
-  characterForm.elements.weapon.value = character.weapon || "";
-  characterForm.elements.skills.value = (character.skills || []).join("\n");
-  characterForm.elements.inventory.value = (character.inventory || []).join("\n");
-  characterForm.elements.description.value = character.description || "";
-  characterForm.elements.image.value = character.image || "";
-  if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Сохранить персонажа";
-}
+    characterForm.elements.weapon.value = character.weapon || "";
+    characterForm.elements.skills.value = (character.skills || []).join("\n");
+    characterForm.elements.inventory.value = (character.inventory || []).join("\n");
+    characterForm.elements.description.value = character.description || "";
+    characterForm.elements.currentImage.value = character.image || "";
+    if (characterForm.elements.imageFile) characterForm.elements.imageFile.value = "";
+    if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Сохранить персонажа";
+  }
 
 function populateCharacterRequestApproval(requestEntry) {
-  resetCharacterForm();
+    resetCharacterForm();
   characterForm.elements.requestId.value = requestEntry.id;
   characterForm.elements.name.value = requestEntry.name || "";
   characterForm.elements.race.value = requestEntry.race || "";
   characterForm.elements.className.value = requestEntry.className || "";
   characterForm.elements.ownerUserId.value = requestEntry.userId || "";
-  characterForm.elements.description.value = requestEntry.description || "";
-  characterForm.elements.health.value = 0;
-  characterForm.elements.armor.value = 0;
-  if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Подтвердить персонажа";
-}
+    characterForm.elements.description.value = requestEntry.description || "";
+    characterForm.elements.health.value = 0;
+    characterForm.elements.armor.value = 0;
+    characterForm.elements.currentImage.value = "";
+    if (characterForm.elements.imageFile) characterForm.elements.imageFile.value = "";
+    if (characterFormSubmitBtn) characterFormSubmitBtn.textContent = "Подтвердить персонажа";
+  }
 
 function populateBestiaryForm(creature) {
   if (!bestiaryForm) return;
@@ -1777,14 +1782,15 @@ function populateBestiaryForm(creature) {
   bestiaryForm.elements.name.value = creature.name;
   bestiaryForm.elements.type.value = creature.type;
   bestiaryForm.elements.tag.value = creature.tag;
-  bestiaryForm.elements.dangerLevel.value = normalizeDangerLevel(
-    creature.dangerLevel || creature.danger
-  );
-  bestiaryForm.elements.description.value = creature.description;
-  bestiaryForm.elements.image.value = creature.image || "";
-  if (bestiaryEditorTitle) bestiaryEditorTitle.textContent = `Редактирование: ${creature.name}`;
-  if (bestiaryEditorDelete) bestiaryEditorDelete.disabled = false;
-}
+    bestiaryForm.elements.dangerLevel.value = normalizeDangerLevel(
+      creature.dangerLevel || creature.danger
+    );
+    bestiaryForm.elements.description.value = creature.description;
+    bestiaryForm.elements.currentImage.value = creature.image || "";
+    if (bestiaryForm.elements.imageFile) bestiaryForm.elements.imageFile.value = "";
+    if (bestiaryEditorTitle) bestiaryEditorTitle.textContent = `Редактирование: ${creature.name}`;
+    if (bestiaryEditorDelete) bestiaryEditorDelete.disabled = false;
+  }
 
 function openMediaModal(payload) {
   if (!mediaModal || !mediaModalFrame || !mediaModalTitle || !mediaModalEyebrow) return;
@@ -1865,13 +1871,21 @@ function updateRaceImageManager() {
 }
 
 function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Не удалось прочитать файл."));
-    reader.readAsDataURL(file);
-  });
-}
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Не удалось прочитать файл."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function resolveFormFileValue(form, fileFieldName, currentFieldName) {
+    if (!form) return "";
+    const currentValue = safeMediaUrl(form.elements[currentFieldName]?.value || "");
+    const selectedFile = form.elements[fileFieldName]?.files?.[0];
+    if (!selectedFile) return currentValue;
+    return readFileAsDataUrl(selectedFile);
+  }
 
 async function uploadRaceImage() {
   if (!isDm() || !activeRacePreview || activeRacePreview.kind !== "lore-race" || !raceImageInput?.files?.[0]) {
@@ -2063,10 +2077,11 @@ async function handleCharacterRequestSubmit(event) {
 }
 
 async function handleCharacterFormSubmit(event) {
-  event.preventDefault();
-  const data = new FormData(characterForm);
-  const requestId = String(data.get("requestId") || "").trim();
-  const payload = {
+    event.preventDefault();
+    const data = new FormData(characterForm);
+    const requestId = String(data.get("requestId") || "").trim();
+    const image = await resolveFormFileValue(characterForm, "imageFile", "currentImage");
+    const payload = {
     id: String(data.get("id") || "").trim(),
     name: String(data.get("name") || "").trim(),
     race: String(data.get("race") || "").trim(),
@@ -2081,13 +2096,13 @@ async function handleCharacterFormSubmit(event) {
       intelligence: Number(data.get("intelligence") || 0),
       charisma: Number(data.get("charisma") || 0)
     },
-    weapon: String(data.get("weapon") || "").trim(),
-    skills: splitLines(String(data.get("skills") || "")),
-    inventory: splitLines(String(data.get("inventory") || "")),
-    description: String(data.get("description") || "").trim(),
-    image: safeMediaUrl(data.get("image")),
-    ownerUserId: String(data.get("ownerUserId") || "").trim()
-  };
+      weapon: String(data.get("weapon") || "").trim(),
+      skills: splitLines(String(data.get("skills") || "")),
+      inventory: splitLines(String(data.get("inventory") || "")),
+      description: String(data.get("description") || "").trim(),
+      image,
+      ownerUserId: String(data.get("ownerUserId") || "").trim()
+    };
   if (!payload.name || !payload.race || !payload.className) return;
   try {
     if (requestId) {
@@ -2107,17 +2122,18 @@ async function handleCharacterFormSubmit(event) {
 }
 
 async function handleBestiaryFormSubmit(event) {
-  event.preventDefault();
-  const data = new FormData(bestiaryForm);
-  const payload = {
+    event.preventDefault();
+    const data = new FormData(bestiaryForm);
+    const image = await resolveFormFileValue(bestiaryForm, "imageFile", "currentImage");
+    const payload = {
     id: String(data.get("id") || "").trim(),
     name: String(data.get("name") || "").trim(),
     type: String(data.get("type") || "wild").trim(),
-    tag: String(data.get("tag") || "").trim(),
-    dangerLevel: normalizeDangerLevel(data.get("dangerLevel")),
-    description: String(data.get("description") || "").trim(),
-    image: safeMediaUrl(data.get("image"))
-  };
+      tag: String(data.get("tag") || "").trim(),
+      dangerLevel: normalizeDangerLevel(data.get("dangerLevel")),
+      description: String(data.get("description") || "").trim(),
+      image
+    };
   if (!payload.name || !payload.description) return;
   try {
     await api("/api/bestiary", { method: "POST", body: payload });
@@ -2181,16 +2197,17 @@ async function handleLoreTableSubmit(event) {
 }
 
 async function handleMapFormSubmit(event) {
-  event.preventDefault();
-  const data = new FormData(mapForm);
-  try {
-    await api("/api/map", {
-      method: "PUT",
-      body: {
-        src: String(data.get("src") || "").trim(),
-        note: String(data.get("note") || "").trim()
-      }
-    });
+    event.preventDefault();
+    const data = new FormData(mapForm);
+    const src = await resolveFormFileValue(mapForm, "mapFile", "currentSrc");
+    try {
+      await api("/api/map", {
+        method: "PUT",
+        body: {
+          src,
+          note: String(data.get("note") || "").trim()
+        }
+      });
     await loadBootstrap();
     refreshAll();
   } catch (error) {
