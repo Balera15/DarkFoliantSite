@@ -2107,10 +2107,12 @@ async function handleAuthSubmit(event) {
       method: "POST",
       body: {
         username: String(data.get("username") || "").trim(),
-        password: String(data.get("password") || "").trim()
+        password: String(data.get("password") || "").trim(),
+        remember: data.get("remember") === "on"
       }
     });
     authForm.reset();
+    if (authForm.elements.remember) authForm.elements.remember.checked = true;
     await loadBootstrap();
     refreshAll();
   } catch (error) {

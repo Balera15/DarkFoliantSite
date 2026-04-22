@@ -11,12 +11,15 @@ const DEFAULT_DATA_DIR = path.join(ROOT, "data");
 const DEFAULT_MEDIA_DIR = path.join(RACES_DIR, "uploads");
 const DATA_DIR = path.resolve(process.env.DATA_DIR || DEFAULT_DATA_DIR);
 const DB_PATH = path.join(DATA_DIR, "db.json");
+const SESSIONS_PATH = path.join(DATA_DIR, "sessions.json");
 const DB_SEED_PATH = path.join(DEFAULT_DATA_DIR, "db.json");
 const MEDIA_DIR = path.resolve(process.env.MEDIA_DIR || DEFAULT_MEDIA_DIR);
 const MEDIA_PUBLIC_PREFIX = String(process.env.MEDIA_PUBLIC_PREFIX || (process.env.MEDIA_DIR ? "media/races/uploads" : "assets/races/uploads"))
   .replace(/^\/+|\/+$/g, "");
 const RACE_UPLOAD_DIR = process.env.MEDIA_DIR ? path.join(MEDIA_DIR, "races", "uploads") : MEDIA_DIR;
 const SESSION_COOKIE = "ferelden_sid";
+const REMEMBER_ME_TTL_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_TTL_SECONDS = 60 * 60 * 12;
 const DANGER_LEVEL_LABELS = {
   safe: "Угроза: безопасный",
   low: "Угроза: низкий",
@@ -27,7 +30,7 @@ const DANGER_LEVEL_LABELS = {
   existential: "Угроза: экзистенциальный"
 };
 
-const sessions = new Map();
+let sessions = new Map();
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -200,6 +203,7 @@ const defaultDb = {
 ensureDataDir();
 let db;
 db = loadDb();
+sessions = loadSessions();
 
 function ensureDataDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -507,6 +511,80 @@ function saveDb(nextDb) {
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
 }
 
+function normalizeSessionRecord(sessionId, value) {
+  if (!sessionId || !value || typeof value !== "object") return null;
+  const userId = String(value.userId || "").trim();
+  const createdAt = Number(value.createdAt || Date.now());
+  const expiresAt = Number(value.expiresAt || 0);
+  if (!userId || !Number.isFinite(createdAt) || !Number.isFinite(expiresAt) || expiresAt <= 0) {
+    return null;
+  }
+  return {
+    sessionId,
+    userId,
+    createdAt,
+    expiresAt,
+    remember: Boolean(value.remember)
+  };
+}
+
+function loadSessions() {
+  try {
+    if (!fs.existsSync(SESSIONS_PATH)) {
+      fs.writeFileSync(SESSIONS_PATH, JSON.stringify({}, null, 2), "utf8");
+      return new Map();
+    }
+    const raw = JSON.parse(fs.readFileSync(SESSIONS_PATH, "utf8"));
+    const now = Date.now();
+    const nextSessions = new Map();
+    Object.entries(raw || {}).forEach(([sessionId, value]) => {
+      const normalized = normalizeSessionRecord(sessionId, value);
+      if (!normalized || normalized.expiresAt <= now) return;
+      nextSessions.set(sessionId, {
+        userId: normalized.userId,
+        createdAt: normalized.createdAt,
+        expiresAt: normalized.expiresAt,
+        remember: normalized.remember
+      });
+    });
+    if (Object.keys(raw || {}).length !== nextSessions.size) {
+      saveSessions(nextSessions);
+    }
+    return nextSessions;
+  } catch {
+    fs.writeFileSync(SESSIONS_PATH, JSON.stringify({}, null, 2), "utf8");
+    return new Map();
+  }
+}
+
+function saveSessions(nextSessions = sessions) {
+  sessions = nextSessions instanceof Map ? nextSessions : new Map();
+  const serializable = Object.fromEntries(
+    Array.from(sessions.entries()).map(([sessionId, value]) => [
+      sessionId,
+      {
+        userId: value.userId,
+        createdAt: value.createdAt,
+        expiresAt: value.expiresAt,
+        remember: Boolean(value.remember)
+      }
+    ])
+  );
+  fs.writeFileSync(SESSIONS_PATH, JSON.stringify(serializable, null, 2), "utf8");
+}
+
+function pruneExpiredSessions() {
+  const now = Date.now();
+  let changed = false;
+  for (const [sessionId, value] of sessions.entries()) {
+    if (!value || !Number.isFinite(Number(value.expiresAt)) || Number(value.expiresAt) <= now) {
+      sessions.delete(sessionId);
+      changed = true;
+    }
+  }
+  if (changed) saveSessions(sessions);
+}
+
 function sanitizeUser(user) {
   const { passwordHash, ...safeUser } = user;
   return safeUser;
@@ -691,27 +769,54 @@ function parseCookies(request) {
 }
 
 function getSessionUser(request) {
+  pruneExpiredSessions();
   const cookies = parseCookies(request);
   const sessionId = cookies[SESSION_COOKIE];
   if (!sessionId) return null;
   const session = sessions.get(sessionId);
   if (!session) return null;
-  return db.users.find((user) => user.id === session.userId) || null;
+  const user = db.users.find((userEntry) => userEntry.id === session.userId) || null;
+  if (!user) {
+    sessions.delete(sessionId);
+    saveSessions(sessions);
+    return null;
+  }
+  return user;
 }
 
-function setSession(response, userId) {
+function setSession(response, userId, remember = false) {
   const sessionId = crypto.randomUUID();
-  sessions.set(sessionId, { userId, createdAt: Date.now() });
+  const createdAt = Date.now();
+  const ttlSeconds = remember ? REMEMBER_ME_TTL_SECONDS : SESSION_TTL_SECONDS;
+  sessions.set(sessionId, {
+    userId,
+    createdAt,
+    expiresAt: createdAt + ttlSeconds * 1000,
+    remember: Boolean(remember)
+  });
+  saveSessions(sessions);
+  const cookieParts = [
+    `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}`,
+    "HttpOnly",
+    "Path=/",
+    "SameSite=Lax"
+  ];
+  if (remember) {
+    cookieParts.push(`Max-Age=${REMEMBER_ME_TTL_SECONDS}`);
+  }
   response.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`
+    cookieParts.join("; ")
   );
 }
 
 function clearSession(request, response) {
   const cookies = parseCookies(request);
   const sessionId = cookies[SESSION_COOKIE];
-  if (sessionId) sessions.delete(sessionId);
+  if (sessionId) {
+    sessions.delete(sessionId);
+    saveSessions(sessions);
+  }
   response.setHeader(
     "Set-Cookie",
     `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`
@@ -806,12 +911,13 @@ async function handleApi(request, response, url) {
     const body = await readBody(request);
     const username = String(body.username || "").trim();
     const password = String(body.password || "").trim();
+    const remember = Boolean(body.remember);
     const user = db.users.find((entry) => entry.username === username);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       sendError(response, 401, "Неверный логин или пароль.");
       return;
     }
-    setSession(response, user.id);
+    setSession(response, user.id, remember);
     sendJson(response, 200, payloadFor(user));
     return;
   }

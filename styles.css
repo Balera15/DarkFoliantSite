@@ -123,6 +123,26 @@ button {
   outline: none;
 }
 
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.auth-remember input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.auth-remember span {
+  color: var(--muted);
+}
+
 .auth-hint {
   margin-top: 12px;
   color: var(--muted);
