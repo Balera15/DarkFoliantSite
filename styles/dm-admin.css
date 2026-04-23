@@ -492,6 +492,7 @@ body.dm-desktop-mode .nav-item.dm-only,
   body.dm-desktop-mode,
   html.dm-desktop-mode body {
     padding: 18px 18px 18px 238px;
+    overflow-x: hidden;
   }
 
   body.dm-desktop-mode .bottom-nav,
@@ -576,14 +577,15 @@ body.dm-desktop-mode .nav-item.dm-only,
 
   body.dm-desktop-mode .app-shell,
   html.dm-desktop-mode .app-shell {
-    width: min(calc(100vw - 256px), 1760px);
+    width: min(calc(100vw - 280px), 1760px);
     max-width: none;
     margin: 0;
+    overflow: hidden;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .app-shell,
   html.dm-desktop-mode[data-active-view="lore"] .app-shell {
-    width: min(calc(100vw - 256px), 1760px);
+    width: min(calc(100vw - 280px), 1760px);
     max-width: none;
     margin: 0;
   }
@@ -615,6 +617,9 @@ body.dm-desktop-mode .nav-item.dm-only,
     gap: 18px 22px;
     align-items: start;
     padding: 20px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: calc(100vh - 250px);
   }
 
@@ -699,6 +704,9 @@ body.dm-desktop-mode .nav-item.dm-only,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor {
     padding: 20px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     border-radius: 24px;
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
@@ -713,6 +721,8 @@ body.dm-desktop-mode .nav-item.dm-only,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor__wrap,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor__wrap {
     max-height: 58vh;
+    max-width: 100%;
+    overflow-x: auto;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table,
