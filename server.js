@@ -470,30 +470,30 @@ function normalizeDb(value) {
 }
 
 function loadDb() {
-    if (!fs.existsSync(DB_PATH)) {
-      const seeded = loadSeedDb();
-      saveDb(seeded);
-      return seeded;
+  if (!fs.existsSync(DB_PATH)) {
+    const seeded = loadSeedDb();
+    saveDb(seeded);
+    return seeded;
   }
-    try {
-      const loaded = normalizeDb(JSON.parse(fs.readFileSync(DB_PATH, "utf8")));
-      const seedDb = loadSeedDb();
-      const nextLore = loaded.lore.map((entry) => {
-        if (String(entry.category || "").trim().toLowerCase() !== "народы") return entry;
-        const seedEntry =
-          seedDb.lore.find((item) => String(item.category || "").trim().toLowerCase() === "народы") || null;
-        const repaired = repairPeopleLoreItems(entry.items, seedEntry?.items || []);
-        return repaired.changed ? { ...entry, items: repaired.items } : entry;
-      });
-      const nextDb = { ...loaded, lore: nextLore };
-      if (JSON.stringify(nextDb.lore) !== JSON.stringify(loaded.lore)) {
-        fs.writeFileSync(DB_PATH, JSON.stringify(nextDb, null, 2), "utf8");
-      }
-      return nextDb;
-    } catch {
-      const seeded = loadSeedDb();
-      saveDb(seeded);
-      return seeded;
+  try {
+    const loaded = normalizeDb(JSON.parse(fs.readFileSync(DB_PATH, "utf8")));
+    const seedDb = loadSeedDb();
+    const nextLore = loaded.lore.map((entry) => {
+      if (String(entry.category || "").trim().toLowerCase() !== "народы") return entry;
+      const seedEntry =
+        seedDb.lore.find((item) => String(item.category || "").trim().toLowerCase() === "народы") || null;
+      const repaired = repairPeopleLoreItems(entry.items, seedEntry?.items || []);
+      return repaired.changed ? { ...entry, items: repaired.items } : entry;
+    });
+    const nextDb = { ...loaded, lore: nextLore };
+    if (JSON.stringify(nextDb.lore) !== JSON.stringify(loaded.lore)) {
+      fs.writeFileSync(DB_PATH, JSON.stringify(nextDb, null, 2), "utf8");
+    }
+    return nextDb;
+  } catch {
+    const seeded = loadSeedDb();
+    saveDb(seeded);
+    return seeded;
   }
 }
 

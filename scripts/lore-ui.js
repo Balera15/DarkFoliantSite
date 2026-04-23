@@ -617,30 +617,10 @@ function populateLoreEditor(entryOrId) {
 }
 
 function renderLoreComposer(activeLore) {
-  if (!loreQuickForm || !loreTableForm || !lorePanel) return;
-
-  if (!isDm()) {
-    loreQuickForm.classList.add("is-hidden");
-    loreTableForm.classList.add("is-hidden");
-    lorePanel.classList.remove("lore-panel--editing", "lore-panel--table-mode", "lore-panel--quick-mode");
-    return;
-  }
-
-  const entry = resolveLoreEntry(activeLore) || resolveLoreEntry(state.selectedLoreId);
-  const useTableEditor = isLoreTableCategory(entry);
-
-  lorePanel.classList.add("lore-panel--editing");
-  lorePanel.classList.toggle("lore-panel--table-mode", useTableEditor);
-  lorePanel.classList.toggle("lore-panel--quick-mode", !useTableEditor);
-
-  loreQuickForm.classList.toggle("is-hidden", useTableEditor);
-  loreTableForm.classList.toggle("is-hidden", !useTableEditor);
-
-  if (useTableEditor) {
-    populateLoreTableEditor(entry);
-  } else {
-    populateLoreEditor(entry);
-  }
+  if (!lorePanel) return;
+  if (loreQuickForm) loreQuickForm.classList.add("is-hidden");
+  if (loreTableForm) loreTableForm.classList.add("is-hidden");
+  lorePanel.classList.remove("lore-panel--editing", "lore-panel--table-mode", "lore-panel--quick-mode");
 }
 
 function populateLoreTableEditor(entryOrId) {
