@@ -1,0 +1,330 @@
+.character-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.character-preview-head select {
+  min-width: 150px;
+}
+
+.character-card-shell {
+  display: grid;
+  gap: 8px;
+}
+
+.character-view--grid {
+  display: grid;
+  gap: 18px;
+}
+
+.sheet-owner {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.character-sheet--sheet {
+  position: relative;
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, var(--sheet-tint), transparent 34%),
+    radial-gradient(circle at bottom right, var(--sheet-tint-2), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
+    linear-gradient(180deg, var(--sheet-fill), var(--sheet-fill-2));
+  box-shadow:
+    inset 0 0 0 1px var(--sheet-border),
+    0 16px 28px rgba(0, 0, 0, 0.22);
+}
+
+.sheet-hero {
+  display: grid;
+  justify-items: center;
+}
+
+.sheet-portrait {
+  width: min(100%, 240px);
+  aspect-ratio: 1 / 1;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--sheet-border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), transparent),
+    var(--sheet-cell);
+  padding: 0;
+  cursor: pointer;
+}
+
+.sheet-portrait img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.sheet-portrait--empty {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px;
+  cursor: default;
+  text-align: center;
+}
+
+.sheet-portrait--empty span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.sheet-portrait--empty strong {
+  max-width: 16ch;
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.character-sheet--sheet::before,
+.character-sheet--sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.character-sheet--sheet::before {
+  background:
+    linear-gradient(90deg, var(--sheet-inner), transparent 14%, transparent 86%, var(--sheet-inner)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 20%, transparent 80%, rgba(255, 255, 255, 0.025));
+  opacity: 0.55;
+}
+
+.character-sheet--sheet::after {
+  inset: 10px;
+  border-radius: 20px;
+  border: 1px solid var(--sheet-inner);
+}
+
+.sheet-header,
+.sheet-strip {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 5px;
+}
+
+.sheet-field,
+.stat-cell,
+.sheet-section__body {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--sheet-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+    var(--sheet-cell);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.sheet-field {
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  font-size: 0.83rem;
+}
+
+.sheet-field--label {
+  color: var(--muted);
+}
+
+.sheet-field--value {
+  color: var(--text);
+}
+
+.sheet-field--right {
+  justify-content: center;
+  font-weight: 700;
+}
+
+.sheet-field--value-control {
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sheet-value-number {
+  min-width: 2ch;
+  text-align: center;
+}
+
+.sheet-field--health {
+  color: #e85d5d;
+  font-weight: 800;
+}
+
+.sheet-field--armor {
+  color: #6aa7ff;
+  font-weight: 800;
+}
+
+.sheet-adjust {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 210, 173, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.sheet-adjust--plus {
+  background: linear-gradient(180deg, rgba(44, 155, 78, 0.38), rgba(25, 106, 51, 0.22));
+  border-color: rgba(93, 211, 128, 0.34);
+  color: #eaffef;
+}
+
+.sheet-adjust--minus {
+  background: linear-gradient(180deg, rgba(112, 54, 54, 0.32), rgba(74, 32, 32, 0.2));
+  border-color: rgba(204, 117, 117, 0.28);
+  color: #ffe5e5;
+}
+
+.sheet-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.stat-cell {
+  border-radius: 14px;
+  text-align: center;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 58px;
+}
+
+.stat-cell span {
+  color: var(--accent);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+.stat-cell strong {
+  font-size: 0.78rem;
+  line-height: 1;
+  color: var(--muted);
+  order: 3;
+}
+
+.stat-cell em {
+  color: var(--text);
+  font-style: normal;
+  font-size: 1rem;
+  font-weight: 800;
+  order: 2;
+}
+
+.sheet-section {
+  display: grid;
+  gap: 5px;
+}
+
+.sheet-section__title {
+  color: var(--accent);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  padding: 0 4px;
+}
+
+.sheet-section__body {
+  border-radius: 16px;
+  line-height: 1.42;
+  color: var(--text);
+}
+
+.sheet-section__body--dense {
+  font-size: 0.8rem;
+}
+
+.sheet-section__body--dense p + p {
+  margin-top: 5px;
+}
+
+.sheet-section__body--long {
+  min-height: 150px;
+  font-size: 0.84rem;
+  line-height: 1.52;
+}
+
+.sheet-section__editor {
+  display: block;
+}
+
+.sheet-section__textarea {
+  width: 100%;
+  min-height: 148px;
+  resize: vertical;
+  border-radius: 16px;
+  border: 1px solid var(--sheet-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--sheet-cell);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.journal-actions--compact {
+  margin-top: 8px;
+}
+
+@media (min-width: 900px) {
+  .dm-desktop-mode .character-view--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .dm-desktop-mode .character-card-shell--compact .character-sheet--sheet {
+    min-height: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .character-sheet--sheet {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .sheet-header,
+  .sheet-strip,
+  .sheet-stats {
+    gap: 4px;
+  }
+
+  .sheet-header {
+    grid-template-columns: 1fr 1.35fr;
+  }
+
+  .sheet-strip {
+    grid-template-columns: 1fr 1.35fr;
+  }
+
+  .sheet-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-section__body--long {
+    min-height: 220px;
+  }
+}
