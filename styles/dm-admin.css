@@ -841,9 +841,11 @@ body.dm-desktop-mode .nav-item.dm-only,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table input,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table select,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea,
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table__cell,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table input,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table select,
-  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea {
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table__cell {
     min-height: 42px;
     padding: 8px 10px;
     border-radius: 12px;
@@ -852,7 +854,9 @@ body.dm-desktop-mode .nav-item.dm-only,
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea,
-  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea {
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table__cell--long,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table__cell--long {
     min-height: 58px;
     max-height: 92px;
   }

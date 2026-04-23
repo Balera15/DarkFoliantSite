@@ -145,6 +145,39 @@
   min-height: 44px;
 }
 
+.lore-table__cell {
+  width: 100%;
+  min-height: 44px;
+  max-height: 92px;
+  overflow: auto;
+  border: 1px solid rgba(232, 210, 173, 0.12);
+  border-radius: 14px;
+  background: rgba(11, 12, 18, 0.78);
+  color: var(--text);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+  cursor: text;
+  scrollbar-width: thin;
+}
+
+.lore-table__cell--long {
+  min-height: 72px;
+  max-height: 130px;
+}
+
+.lore-table__cell:focus {
+  border-color: rgba(184, 138, 82, 0.55);
+  background: rgba(12, 13, 19, 0.96);
+  box-shadow: 0 0 0 2px rgba(184, 138, 82, 0.12);
+}
+
+.lore-table__cell:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(176, 154, 128, 0.72);
+}
+
 .lore-table textarea {
   min-height: 72px;
   max-height: 120px;

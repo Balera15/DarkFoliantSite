@@ -218,17 +218,40 @@ function createEmptyLoreTableRow(category) {
   return Object.fromEntries(getLoreTableSchema(category).map((column) => [column, ""]));
 }
 
+function readLoreTableFieldValue(field) {
+  if (!field) return "";
+  if ("value" in field) return field.value;
+  return field.textContent || "";
+}
+
 function collectLoreTableRows() {
   if (!loreTableBody) return [];
   return Array.from(loreTableBody.querySelectorAll("tr[data-row-index]"))
     .map((row) => {
       const result = {};
       Array.from(row.querySelectorAll("[data-column]")).forEach((field) => {
-        result[field.dataset.column] = field.value;
+        result[field.dataset.column] = readLoreTableFieldValue(field);
       });
       return result;
     })
     .filter((row) => Object.values(row).some((value) => String(value || "").trim()));
+}
+
+function renderLoreEditableCell(column, value, multiline) {
+  const className = multiline ? "lore-table__cell lore-table__cell--long" : "lore-table__cell";
+  return `<div class="${className}" data-column="${escapeHtml(column)}" contenteditable="plaintext-only" role="textbox" tabindex="0" aria-label="${escapeHtml(column)}" data-placeholder="${escapeHtml(column)}">${escapeHtml(value)}</div>`;
+}
+
+function handleLoreTableCellPaste(event) {
+  const cell =
+    event.target instanceof HTMLElement
+      ? event.target.closest(".lore-table__cell[contenteditable]")
+      : null;
+  if (!cell) return;
+  const text = event.clipboardData?.getData("text/plain");
+  if (!text) return;
+  event.preventDefault();
+  document.execCommand("insertText", false, text);
 }
 
 function renderLoreTableRows(category, rows) {
@@ -256,11 +279,7 @@ function renderLoreTableRows(category, rows) {
                 .join("")}
             </select></td>`;
           }
-          return `<td>${
-            multiline
-              ? `<textarea data-column="${escapeHtml(column)}" rows="3" placeholder="${escapeHtml(column)}">${escapeHtml(value)}</textarea>`
-              : `<input data-column="${escapeHtml(column)}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(column)}">`
-          }</td>`;
+          return `<td>${renderLoreEditableCell(column, value, multiline)}</td>`;
         })
         .join("");
       return `<tr data-row-index="${index}">${cells}<td class="lore-table__actions"><button class="ghost-btn ghost-btn--small" data-action="remove-lore-row" data-row-index="${index}" type="button">Убрать</button></td></tr>`;

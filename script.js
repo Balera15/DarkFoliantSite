@@ -1483,6 +1483,7 @@ function bindEvents() {
     rows.push(createEmptyLoreTableRow(category));
     renderLoreTableRows(category, rows);
   });
+  loreTableBody?.addEventListener("paste", handleLoreTableCellPaste);
   loreTableForm?.elements.category?.addEventListener("change", () => {
     const category = String(loreTableForm.elements.category.value || "История").trim() || "История";
     const previousRows = collectLoreTableRows();
@@ -1497,6 +1498,7 @@ function bindEvents() {
   bestiaryGrid.addEventListener("click", handleAdminAction);
   loreContent?.addEventListener("click", handleAdminAction);
   loreTabs?.addEventListener("click", handleAdminAction);
+  loreTableBody?.addEventListener("paste", handleLoreTableCellPaste);
   desktopDmQuery.addEventListener("change", refreshAll);
   window.addEventListener("scroll", updateFloatingLoreSearch, { passive: true });
   window.addEventListener("resize", refreshLoreSearchAnchor);
