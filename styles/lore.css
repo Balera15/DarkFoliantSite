@@ -131,6 +131,11 @@
   border-bottom: none;
 }
 
+.lore-table tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: 72px 1200px;
+}
+
 .lore-table input,
 .lore-table select,
 .lore-table textarea {
@@ -150,6 +155,7 @@
   min-height: 44px;
   max-height: 92px;
   overflow: auto;
+  contain: layout paint style;
   border: 1px solid rgba(232, 210, 173, 0.12);
   border-radius: 14px;
   background: rgba(11, 12, 18, 0.78);

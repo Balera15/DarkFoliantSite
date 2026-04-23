@@ -817,6 +817,7 @@ body.dm-desktop-mode .nav-item.dm-only,
     overflow-y: auto;
     overscroll-behavior: contain;
     contain: layout paint style;
+    scrollbar-gutter: stable both-edges;
     background: rgba(10, 10, 14, 0.72);
     box-shadow: none;
   }
@@ -836,6 +837,7 @@ body.dm-desktop-mode .nav-item.dm-only,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table td,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table td {
     background: transparent;
+    contain: layout paint style;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table input,
