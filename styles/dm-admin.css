@@ -735,3 +735,83 @@ body.dm-desktop-mode .nav-item.dm-only,
     margin-top: 4px;
   }
 }
+
+@media (min-width: 900px) {
+  html.dm-desktop-mode,
+  body.dm-desktop-mode,
+  html.dm-desktop-mode body {
+    max-width: 100%;
+    overflow-x: hidden !important;
+  }
+
+  body.dm-desktop-mode .app-shell,
+  html.dm-desktop-mode .app-shell,
+  body.dm-desktop-mode[data-active-view="lore"] .app-shell,
+  html.dm-desktop-mode[data-active-view="lore"] .app-shell {
+    width: min(calc(100vw - 280px), 1760px) !important;
+    max-width: none !important;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  body.dm-desktop-mode .workspace,
+  html.dm-desktop-mode .workspace,
+  body.dm-desktop-mode[data-active-view="lore"] .workspace,
+  html.dm-desktop-mode[data-active-view="lore"] .workspace {
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body.dm-desktop-mode .workspace > .screen,
+  html.dm-desktop-mode .workspace > .screen {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    position: relative !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+
+  body.dm-desktop-mode .workspace > .screen:not(.is-active),
+  html.dm-desktop-mode .workspace > .screen:not(.is-active) {
+    display: none !important;
+  }
+
+  body.dm-desktop-mode .workspace > .screen.is-active,
+  html.dm-desktop-mode .workspace > .screen.is-active,
+  body.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="lore"],
+  html.dm-desktop-mode[data-active-view="lore"] .workspace > .screen[data-view="lore"] {
+    display: block !important;
+    overflow: visible;
+  }
+
+  body.dm-desktop-mode .bottom-nav .nav-item,
+  html.dm-desktop-mode .bottom-nav .nav-item {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-panel,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-panel {
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor {
+    overflow: hidden;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor__wrap,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor__wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+}
