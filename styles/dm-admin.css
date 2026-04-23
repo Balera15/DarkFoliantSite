@@ -491,20 +491,27 @@ body.dm-desktop-mode .nav-item.dm-only,
 @media (min-width: 900px) {
   body.dm-desktop-mode,
   html.dm-desktop-mode body {
-    padding-left: 236px;
+    padding: 18px 18px 18px 238px;
   }
 
   body.dm-desktop-mode .bottom-nav,
   html.dm-desktop-mode .bottom-nav {
-    position: fixed;
-    inset: 18px auto 18px 18px;
+    position: fixed !important;
+    left: 18px !important;
+    right: auto !important;
+    top: 18px !important;
+    bottom: 18px !important;
+    transform: none !important;
+    margin: 0 !important;
     z-index: 60;
     display: grid !important;
-    width: 200px;
+    width: 204px !important;
+    max-width: 204px !important;
     grid-template-columns: 1fr;
     align-content: start;
     gap: 10px;
     padding: 18px;
+    overflow-y: auto;
     border: 1px solid rgba(232, 210, 173, 0.16);
     border-radius: 28px;
     background:
@@ -543,6 +550,7 @@ body.dm-desktop-mode .nav-item.dm-only,
   html.dm-desktop-mode .bottom-nav .nav-item {
     display: flex !important;
     width: 100%;
+    min-width: 0;
     min-height: 46px;
     justify-content: flex-start;
     padding: 0 15px;
@@ -568,14 +576,16 @@ body.dm-desktop-mode .nav-item.dm-only,
 
   body.dm-desktop-mode .app-shell,
   html.dm-desktop-mode .app-shell {
-    width: min(calc(100vw - 268px), 1760px);
+    width: min(calc(100vw - 256px), 1760px);
     max-width: none;
+    margin: 0;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .app-shell,
   html.dm-desktop-mode[data-active-view="lore"] .app-shell {
-    width: min(calc(100vw - 268px), 1760px);
+    width: min(calc(100vw - 256px), 1760px);
     max-width: none;
+    margin: 0;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .workspace,
