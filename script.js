@@ -997,7 +997,7 @@ function refreshAll() {
   renderAccountSummary();
 
   navItems.forEach((button) => {
-    const shouldHide = button.dataset.target === "dm" && (!isDm() || isDesktopDm());
+    const shouldHide = button.dataset.target === "dm" && !isDm();
     button.classList.toggle("is-hidden", shouldHide);
     if (shouldHide && button.classList.contains("is-active")) setView("bestiary");
   });
