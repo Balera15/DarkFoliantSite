@@ -595,6 +595,290 @@ function renderLore() {
   renderLoreComposer(activeLore);
 }
 
+function createLoreDraft(entry) {
+  return {
+    id: entry.id || "",
+    category: loreEntryTitle(entry),
+    tone: entry.tone || "lore-tone--ember",
+    items: Array.isArray(entry.items) && entry.items.length ? [...entry.items] : [""]
+  };
+}
+
+function ensureLoreEditorDraft(entryOrId) {
+  const entry = resolveLoreEntry(entryOrId);
+  if (!entry) {
+    state.loreEditorDraftId = "";
+    state.loreEditorDraft = null;
+    state.selectedLoreRecordIndex = 0;
+    return null;
+  }
+
+  if (state.loreEditorDraftId !== entry.id || !state.loreEditorDraft) {
+    state.loreEditorDraftId = entry.id;
+    state.loreEditorDraft = createLoreDraft(entry);
+    state.selectedLoreRecordIndex = 0;
+  }
+
+  if (!Array.isArray(state.loreEditorDraft.items) || !state.loreEditorDraft.items.length) {
+    state.loreEditorDraft.items = [""];
+  }
+
+  if (state.selectedLoreRecordIndex < 0) {
+    state.selectedLoreRecordIndex = 0;
+  }
+  if (state.selectedLoreRecordIndex >= state.loreEditorDraft.items.length) {
+    state.selectedLoreRecordIndex = state.loreEditorDraft.items.length - 1;
+  }
+
+  return state.loreEditorDraft;
+}
+
+function loreEditorFieldDefs(category) {
+  const columns = getLoreTableSchema(category);
+  return columns.map((column) => ({
+    key: column,
+    label: column,
+    options: getLoreTableSelectOptions(category, column),
+    multiline: columns.length === 1 || ["Описание", "Заметки", "Способности"].includes(column)
+  }));
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(String(value || "")).replace(/"/g, "&quot;");
+}
+
+function loreRecordSummary(category, item, index) {
+  const parsed = parseLoreItemForTable(category, item || "");
+  const schema = getLoreTableSchema(category);
+  const titleKey = schema[0];
+  const title =
+    String(parsed?.[titleKey] || "").trim() ||
+    String(item || "").split(".")[0].trim() ||
+    `Запись ${index + 1}`;
+  const metaKey =
+    category.toLowerCase() === "народы"
+      ? "Тип"
+      : category.toLowerCase() === "классы"
+        ? "Сложность"
+        : category.toLowerCase() === "государства"
+          ? "Правитель"
+          : category.toLowerCase() === "поселения"
+            ? "Принадлежность"
+            : "";
+  const meta = metaKey ? String(parsed?.[metaKey] || "").trim() : "";
+  return { title, meta };
+}
+
+function renderLoreEditorField(field, value) {
+  if (field.options) {
+    return `<label class="auth-field lore-dm-editor__field">
+      <span>${escapeHtml(field.label)}</span>
+      <select data-lore-field="${escapeAttribute(field.key)}">
+        <option value="">Выбрать</option>
+        ${field.options
+          .map(
+            (option) =>
+              `<option value="${escapeAttribute(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`
+          )
+          .join("")}
+      </select>
+    </label>`;
+  }
+
+  if (field.multiline) {
+    return `<label class="auth-field lore-dm-editor__field lore-dm-editor__field--wide">
+      <span>${escapeHtml(field.label)}</span>
+      <textarea data-lore-field="${escapeAttribute(field.key)}" rows="${field.key === "Запись" ? 8 : 6}" placeholder="${escapeAttribute(field.label)}">${escapeHtml(value)}</textarea>
+    </label>`;
+  }
+
+  return `<label class="auth-field lore-dm-editor__field">
+    <span>${escapeHtml(field.label)}</span>
+    <input type="text" data-lore-field="${escapeAttribute(field.key)}" value="${escapeAttribute(value)}" placeholder="${escapeAttribute(field.label)}">
+  </label>`;
+}
+
+function renderLoreComposer(activeLore) {
+  if (!lorePanel || !loreDmEditor) return;
+
+  if (!isDm()) {
+    loreDmEditor.classList.add("is-hidden");
+    loreDmEditor.innerHTML = "";
+    lorePanel.classList.remove("lore-panel--editing", "lore-panel--editor-mode");
+    return;
+  }
+
+  const draft = ensureLoreEditorDraft(activeLore);
+  if (!draft) {
+    loreDmEditor.classList.add("is-hidden");
+    loreDmEditor.innerHTML = "";
+    lorePanel.classList.remove("lore-panel--editing", "lore-panel--editor-mode");
+    return;
+  }
+
+  const category = String(draft.category || "").trim() || "История";
+  const currentItem = draft.items[state.selectedLoreRecordIndex] || "";
+  const currentRow = parseLoreItemForTable(category, currentItem);
+  const fields = loreEditorFieldDefs(category);
+
+  lorePanel.classList.add("lore-panel--editing", "lore-panel--editor-mode");
+  loreDmEditor.classList.remove("is-hidden");
+  loreDmEditor.innerHTML = `
+    <form class="lore-dm-editor__form">
+      <div class="lore-editor__head">
+        <div>
+          <p class="lore-editor__eyebrow">Редактор DM</p>
+          <h4>Раздел: ${escapeHtml(category)}</h4>
+        </div>
+        <div class="lore-editor__tools">
+          <button class="ghost-btn ghost-btn--small" data-lore-editor-action="add-record" type="button">Новая запись</button>
+          <button class="ghost-btn ghost-btn--small" data-lore-editor-action="remove-record" type="button" ${draft.items.length <= 1 ? "disabled" : ""}>Удалить запись</button>
+        </div>
+      </div>
+      <div class="lore-dm-editor__meta">
+        <label class="auth-field lore-dm-editor__field">
+          <span>Раздел</span>
+          <input type="text" value="${escapeAttribute(category)}" readonly>
+        </label>
+        <label class="auth-field lore-dm-editor__field">
+          <span>Цвет раздела</span>
+          <select data-lore-meta="tone">
+            <option value="lore-tone--ember" ${draft.tone === "lore-tone--ember" ? "selected" : ""}>Янтарный</option>
+            <option value="lore-tone--sage" ${draft.tone === "lore-tone--sage" ? "selected" : ""}>Шалфейный</option>
+            <option value="lore-tone--steel" ${draft.tone === "lore-tone--steel" ? "selected" : ""}>Стальной</option>
+            <option value="lore-tone--rose" ${draft.tone === "lore-tone--rose" ? "selected" : ""}>Пепельно-розовый</option>
+            <option value="lore-tone--violet" ${draft.tone === "lore-tone--violet" ? "selected" : ""}>Сумеречный</option>
+          </select>
+        </label>
+        <div class="lore-dm-editor__count">
+          <span>Записей</span>
+          <strong>${draft.items.length}</strong>
+        </div>
+      </div>
+      <div class="lore-dm-editor__layout">
+        <aside class="lore-dm-editor__records">
+          <p class="lore-dm-editor__label">Записи раздела</p>
+          <div class="lore-dm-editor__record-list">
+            ${draft.items
+              .map((item, index) => {
+                const summary = loreRecordSummary(category, item, index);
+                return `<button class="lore-dm-editor__record ${index === state.selectedLoreRecordIndex ? "is-active" : ""}" data-lore-editor-action="select-record" data-index="${index}" type="button">
+                  <span class="lore-dm-editor__record-title">${escapeHtml(summary.title)}</span>
+                  ${summary.meta ? `<span class="lore-dm-editor__record-meta">${escapeHtml(summary.meta)}</span>` : ""}
+                </button>`;
+              })
+              .join("")}
+          </div>
+        </aside>
+        <section class="lore-dm-editor__editor">
+          <p class="lore-dm-editor__label">Редактирование записи</p>
+          <div class="lore-dm-editor__fields">
+            ${fields.map((field) => renderLoreEditorField(field, currentRow[field.key] || "")).join("")}
+          </div>
+        </section>
+      </div>
+      <div class="journal-actions">
+        <button class="action-btn" type="submit">Сохранить раздел</button>
+        <button class="ghost-btn" data-lore-editor-action="reset-draft" type="button">Сбросить</button>
+      </div>
+    </form>`;
+}
+
+function updateLoreDraftFromField(fieldName, value) {
+  const draft = state.loreEditorDraft;
+  if (!draft) return;
+  const category = String(draft.category || "").trim() || "История";
+  const index = state.selectedLoreRecordIndex;
+  const currentRow = parseLoreItemForTable(category, draft.items[index] || "");
+  currentRow[fieldName] = String(value || "").trim();
+  draft.items[index] = buildLoreItemFromTable(category, currentRow);
+}
+
+function handleLoreEditorInput(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!state.loreEditorDraft) return;
+
+  const fieldName = target.dataset?.loreField || "";
+  const metaName = target.dataset?.loreMeta || "";
+
+  if (fieldName) {
+    const value = "value" in target ? target.value : target.textContent || "";
+    updateLoreDraftFromField(fieldName, value);
+    return;
+  }
+
+  if (metaName === "tone" && "value" in target) {
+    state.loreEditorDraft.tone = String(target.value || "").trim() || "lore-tone--ember";
+  }
+}
+
+function handleLoreEditorAction(event) {
+  const button = event.target instanceof HTMLElement
+    ? event.target.closest("[data-lore-editor-action]")
+    : null;
+  if (!button || !state.loreEditorDraft) return;
+
+  const action = button.dataset.loreEditorAction;
+  const draft = state.loreEditorDraft;
+  const category = String(draft.category || "").trim() || "История";
+
+  if (action === "select-record") {
+    state.selectedLoreRecordIndex = Number(button.dataset.index || 0);
+    renderLoreComposer(resolveLoreEntry(state.selectedLoreId));
+    return;
+  }
+
+  if (action === "add-record") {
+    draft.items.push(buildLoreItemFromTable(category, createEmptyLoreTableRow(category)));
+    state.selectedLoreRecordIndex = draft.items.length - 1;
+    renderLoreComposer(resolveLoreEntry(state.selectedLoreId));
+    return;
+  }
+
+  if (action === "remove-record") {
+    if (draft.items.length <= 1) return;
+    draft.items.splice(state.selectedLoreRecordIndex, 1);
+    state.selectedLoreRecordIndex = Math.max(0, state.selectedLoreRecordIndex - 1);
+    renderLoreComposer(resolveLoreEntry(state.selectedLoreId));
+    return;
+  }
+
+  if (action === "reset-draft") {
+    state.loreEditorDraftId = "";
+    state.loreEditorDraft = null;
+    state.selectedLoreRecordIndex = 0;
+    renderLoreComposer(resolveLoreEntry(state.selectedLoreId));
+  }
+}
+
+async function handleLoreEditorSubmit(event) {
+  if (!(event.target instanceof HTMLFormElement) || !event.target.closest("#loreDmEditor")) return;
+  event.preventDefault();
+  const draft = state.loreEditorDraft;
+  if (!draft) return;
+
+  const payload = {
+    id: String(draft.id || "").trim(),
+    category: String(draft.category || "").trim(),
+    tone: String(draft.tone || "").trim() || "lore-tone--ember",
+    items: (draft.items || []).map((item) => String(item || "").trim()).filter(Boolean)
+  };
+
+  if (!payload.category || !payload.items.length) return;
+
+  try {
+    await api("/api/lore", { method: "POST", body: payload });
+    state.loreEditorDraftId = "";
+    state.loreEditorDraft = null;
+    await loadBootstrap();
+    state.selectedLoreId = payload.id || state.selectedLoreId;
+    refreshAll();
+  } catch (error) {
+    alert(error.message || "Не удалось сохранить раздел.");
+  }
+}
+
 function populateLoreEditor(entryOrId) {
   if (!loreQuickForm) return;
   const entry = resolveLoreEntry(entryOrId);

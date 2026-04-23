@@ -694,11 +694,20 @@ body.dm-desktop-mode .nav-item.dm-only,
 
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-quick,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor,
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-dm-editor,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-reader,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-quick,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-dm-editor,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-reader {
     grid-column: 2;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-dm-editor,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-dm-editor {
+    width: 100%;
+    min-width: 0;
+    padding: 20px;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor,

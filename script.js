@@ -154,6 +154,7 @@ const filterButtons = Array.from(document.querySelectorAll("[data-filter]"));
 const themeList = document.getElementById("themeList");
 const loreTabs = document.getElementById("loreTabs");
 const loreContent = document.getElementById("loreContent");
+const loreDmEditor = document.getElementById("loreDmEditor");
 const loreSearch = document.getElementById("loreSearch");
 const lorePeopleHint = document.getElementById("lorePeopleHint");
 const journalField = document.getElementById("sessionNotes");
@@ -240,6 +241,9 @@ let state = {
   selectedCharacterId: loadUiState().selectedCharacterId || "",
   selectedDmPanel: loadUiState().selectedDmPanel || "users",
   selectedLoreId: "",
+  selectedLoreRecordIndex: 0,
+  loreEditorDraftId: "",
+  loreEditorDraft: null,
   loreQuery: ""
 };
 
@@ -1325,6 +1329,9 @@ function handleAdminAction(event) {
 
   if (action === "select-lore") {
     state.selectedLoreId = button.dataset.id;
+    state.selectedLoreRecordIndex = 0;
+    state.loreEditorDraftId = "";
+    state.loreEditorDraft = null;
     renderLore();
     renderLoreComposer();
     return;
@@ -1498,6 +1505,10 @@ function bindEvents() {
   bestiaryGrid.addEventListener("click", handleAdminAction);
   loreContent?.addEventListener("click", handleAdminAction);
   loreTabs?.addEventListener("click", handleAdminAction);
+  loreDmEditor?.addEventListener("click", handleLoreEditorAction);
+  loreDmEditor?.addEventListener("input", handleLoreEditorInput);
+  loreDmEditor?.addEventListener("change", handleLoreEditorInput);
+  loreDmEditor?.addEventListener("submit", handleLoreEditorSubmit);
   loreTableBody?.addEventListener("paste", handleLoreTableCellPaste);
   desktopDmQuery.addEventListener("change", refreshAll);
   window.addEventListener("scroll", updateFloatingLoreSearch, { passive: true });
