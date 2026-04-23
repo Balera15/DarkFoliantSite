@@ -583,8 +583,29 @@
 }
 
 @media (min-width: 900px) {
+  html.dm-desktop-mode[data-active-view="lore"] .app-shell,
+  body.dm-desktop-mode[data-active-view="lore"] .app-shell,
+  .app-shell.dm-desktop-mode:has(.screen[data-view="lore"].is-active) {
+    width: min(calc(100vw - 36px), 1680px);
+    max-width: none;
+  }
+
+  html.dm-desktop-mode[data-active-view="lore"] .workspace,
+  body.dm-desktop-mode[data-active-view="lore"] .workspace,
+  .app-shell.dm-desktop-mode:has(.screen[data-view="lore"].is-active) .workspace {
+    display: block;
+    width: 100%;
+  }
+
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"],
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"],
+  .app-shell.dm-desktop-mode .screen[data-view="lore"].is-active {
+    width: 100%;
+    max-width: none;
+  }
+
   .dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-panel {
-    grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
     gap: 20px 24px;
     align-items: start;
   }
@@ -623,7 +644,7 @@
   }
 
   .dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-panel--editing.lore-panel--table-mode {
-    grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   }
 
   .dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-panel--editing.lore-panel--table-mode .lore-table-editor {

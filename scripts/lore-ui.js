@@ -607,7 +607,7 @@ function renderLoreComposer(activeLore) {
     return;
   }
 
-  const entry = resolveLoreEntry(activeLore);
+  const entry = resolveLoreEntry(activeLore) || resolveLoreEntry(state.selectedLoreId);
   const useTableEditor = isLoreTableCategory(entry);
 
   lorePanel.classList.add("lore-panel--editing");
