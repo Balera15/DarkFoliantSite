@@ -487,9 +487,13 @@ function resolveLoreEntry(entryOrId) {
   return db.lore.find((entry) => entry.id === entryOrId) || null;
 }
 
+function loreEntryTitle(entry) {
+  return String(entry?.category || entry?.title || "").trim();
+}
+
 function isLoreTableCategory(entryOrId) {
   const entry = resolveLoreEntry(entryOrId);
-  const normalized = normalizedLoreCategory(entry?.title);
+  const normalized = normalizedLoreCategory(loreEntryTitle(entry));
   return entry?.editor === "table" || ["народы", "классы", "государства", "поселения"].includes(normalized);
 }
 
@@ -522,7 +526,7 @@ function renderLore() {
   loreTabs.innerHTML = entries
     .map(
       (entry) => `<button class="lore-tab ${entry.id === activeLore?.id ? "is-active" : ""} ${entry.tone || ""}" data-action="select-lore" data-id="${entry.id}" type="button">
-        <span class="lore-tab__name">${escapeHtml(entry.title)}</span>
+        <span class="lore-tab__name">${escapeHtml(loreEntryTitle(entry))}</span>
         <span class="lore-tab__count">${String((entry.filteredItems || entry.items || []).length).padStart(2, "0")}</span>
       </button>`
     )
@@ -538,7 +542,7 @@ function renderLore() {
   if (lorePeopleHint) {
     const showPeopleHint =
       !isDm() &&
-      normalizedLoreCategory(activeLore?.title) === "народы" &&
+      normalizedLoreCategory(loreEntryTitle(activeLore)) === "народы" &&
       visibleItems.length > 0;
     lorePeopleHint.classList.toggle("is-hidden", !showPeopleHint);
   }
@@ -548,7 +552,7 @@ function renderLore() {
         <div class="lore-sheet__head">
           <div>
             <p class="lore-sheet__eyebrow">Раздел архива</p>
-            <h3>${escapeHtml(activeLore.title)}</h3>
+            <h3>${escapeHtml(loreEntryTitle(activeLore))}</h3>
           </div>
           <p class="lore-sheet__count">${String(visibleItems.length).padStart(2, "0")} записи</p>
         </div>
@@ -559,7 +563,7 @@ function renderLore() {
                   .map(
                     (item, index) => `<section class="lore-entry">
                       <span class="lore-entry__index">${String(index + 1).padStart(2, "0")}</span>
-                      ${renderLoreItem(item, activeLore.title)}
+                      ${renderLoreItem(item, loreEntryTitle(activeLore))}
                     </section>`
                   )
                   .join("")
@@ -581,12 +585,12 @@ function populateLoreEditor(entryOrId) {
   }
 
   loreQuickForm.elements.id.value = entry.id || "";
-  loreQuickForm.elements.category.value = entry.title || "";
+  loreQuickForm.elements.category.value = loreEntryTitle(entry);
   loreQuickForm.elements.tone.value = entry.tone || "lore-tone--ember";
   loreQuickForm.elements.items.value = (entry.items || []).join("\n");
 
   if (loreEditorTitle) {
-    loreEditorTitle.textContent = `Редактирование: ${entry.title || "Раздел"}`;
+    loreEditorTitle.textContent = `Редактирование: ${loreEntryTitle(entry) || "Раздел"}`;
   }
   if (loreEditorDelete) {
     loreEditorDelete.disabled = !entry.id;
@@ -629,16 +633,17 @@ function populateLoreTableEditor(entryOrId) {
   }
 
   loreTableForm.elements.id.value = entry.id || "";
-  loreTableForm.elements.category.value = entry.title || "";
+  loreTableForm.elements.category.value = loreEntryTitle(entry);
   loreTableForm.elements.tone.value = entry.tone || "lore-tone--ember";
 
   if (loreTableEditorTitle) {
-    loreTableEditorTitle.textContent = `Таблица: ${entry.title || "Раздел"}`;
+    loreTableEditorTitle.textContent = `Таблица: ${loreEntryTitle(entry) || "Раздел"}`;
   }
   if (loreTableEditorDelete) {
     loreTableEditorDelete.disabled = !entry.id;
   }
 
-  const rows = (entry.items || []).map((item) => parseLoreItemForTable(entry.title, item));
-  renderLoreTableRows(entry.title, rows.length ? rows : [createEmptyLoreTableRow(entry.title)]);
+  const category = loreEntryTitle(entry);
+  const rows = (entry.items || []).map((item) => parseLoreItemForTable(category, item));
+  renderLoreTableRows(category, rows.length ? rows : [createEmptyLoreTableRow(category)]);
 }
