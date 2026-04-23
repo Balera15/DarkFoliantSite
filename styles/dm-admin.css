@@ -805,13 +805,55 @@ body.dm-desktop-mode .nav-item.dm-only,
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor {
     overflow: hidden;
+    contain: layout paint style;
   }
 
   body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor__wrap,
   html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table-editor__wrap {
     width: 100%;
     max-width: 100%;
+    max-height: min(58vh, 620px);
     overflow-x: auto;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    contain: layout paint style;
+    background: rgba(10, 10, 14, 0.72);
+    box-shadow: none;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table {
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table th,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table th {
+    position: static;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table td,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table td {
+    background: transparent;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table input,
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table select,
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table input,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table select,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea {
+    min-height: 42px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    box-shadow: none;
+    resize: none;
+  }
+
+  body.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea,
+  html.dm-desktop-mode[data-active-view="lore"] .screen[data-view="lore"] .lore-table textarea {
+    min-height: 58px;
+    max-height: 92px;
   }
 }
