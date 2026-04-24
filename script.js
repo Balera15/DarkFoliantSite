@@ -177,9 +177,6 @@ const characterForm = document.getElementById("characterForm");
 const characterFormSubmitBtn = characterForm?.querySelector('button[type="submit"]');
 const bestiaryForm = document.getElementById("bestiaryForm");
 const mapForm = document.getElementById("mapForm");
-const mapViewport = document.getElementById("mapViewport");
-const mapImage = document.getElementById("mapImage");
-const mapResetBtn = document.getElementById("mapResetBtn");
 const userFormReset = document.getElementById("userFormReset");
 const characterFormReset = document.getElementById("characterFormReset");
 const bestiaryFormReset = document.getElementById("bestiaryFormReset");
@@ -237,28 +234,6 @@ let characterRuntimeRequestSeq = 0;
 const latestCharacterRuntimeRequest = new Map();
 const pendingCharacterRuntimeSnapshots = new Map();
 let loadingStartedAt = 0;
-const mapView = {
-  scale: 1,
-  minScale: 1,
-  maxScale: 5,
-  x: 0,
-  y: 0,
-  pointerActive: false,
-  pointerId: null,
-  dragStartX: 0,
-  dragStartY: 0,
-  originX: 0,
-  originY: 0,
-  pinchActive: false,
-  pinchStartDistance: 0,
-  pinchStartScale: 1,
-  pinchStartMidX: 0,
-  pinchStartMidY: 0,
-  pinchOriginX: 0,
-  pinchOriginY: 0,
-  touchMode: "",
-  lastSrc: ""
-};
 
 let state = {
   view: "bestiary",
@@ -619,234 +594,14 @@ function renderAccountSummary() {
 }
 
 function renderMap() {
-  if (!mapImage) return;
-  const nextSrc = db.map.src || "assets/map.svg";
-  const shouldReset = mapView.lastSrc !== nextSrc;
-  mapImage.src = nextSrc;
-  mapImage.alt = db.map.note || "Карта Ферелдена";
+  const img = document.querySelector(".map-panel img");
+  if (img) {
+    img.src = db.map.src || "assets/map.svg";
+    img.alt = db.map.note || "Карта Ферелдена";
+  }
   if (mapForm?.elements?.currentSrc) {
-    mapForm.elements.currentSrc.value = nextSrc;
+    mapForm.elements.currentSrc.value = db.map.src || "assets/map.svg";
   }
-  if (shouldReset) {
-    mapView.lastSrc = nextSrc;
-    resetMapView();
-  } else {
-    applyMapTransform();
-  }
-}
-
-function clampMapPan() {
-  if (!mapViewport || !mapImage) return;
-  if (mapView.scale <= mapView.minScale + 0.001) {
-    mapView.x = 0;
-    mapView.y = 0;
-    return;
-  }
-  const viewportWidth = mapViewport.clientWidth || 0;
-  const viewportHeight = mapViewport.clientHeight || 0;
-  const imageWidth = mapImage.offsetWidth || 0;
-  const imageHeight = mapImage.offsetHeight || 0;
-  const maxX = Math.max(0, (imageWidth * mapView.scale - viewportWidth) / 2);
-  const maxY = Math.max(0, (imageHeight * mapView.scale - viewportHeight) / 2);
-  mapView.x = Math.min(maxX, Math.max(-maxX, mapView.x));
-  mapView.y = Math.min(maxY, Math.max(-maxY, mapView.y));
-}
-
-function applyMapTransform() {
-  if (!mapImage || !mapViewport) return;
-  clampMapPan();
-  mapImage.style.transform = `translate(${mapView.x}px, ${mapView.y}px) scale(${mapView.scale})`;
-  mapViewport.classList.toggle("is-zoomed", mapView.scale > mapView.minScale + 0.01);
-}
-
-function resetMapView() {
-  mapView.scale = mapView.minScale;
-  mapView.x = 0;
-  mapView.y = 0;
-  mapView.pointerActive = false;
-  mapView.pointerId = null;
-  mapView.pinchActive = false;
-  mapView.touchMode = "";
-  mapViewport?.classList.remove("is-dragging");
-  applyMapTransform();
-}
-
-function zoomMapTo(nextScale, clientX, clientY) {
-  if (!mapViewport || !mapImage) return;
-  const rect = mapViewport.getBoundingClientRect();
-  const viewportX = Number.isFinite(clientX) ? clientX - rect.left : rect.width / 2;
-  const viewportY = Number.isFinite(clientY) ? clientY - rect.top : rect.height / 2;
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
-  const clampedScale = Math.min(mapView.maxScale, Math.max(mapView.minScale, nextScale));
-  if (Math.abs(clampedScale - mapView.scale) < 0.001) return;
-  const contentX = (viewportX - centerX - mapView.x) / mapView.scale;
-  const contentY = (viewportY - centerY - mapView.y) / mapView.scale;
-  mapView.scale = clampedScale;
-  mapView.x = viewportX - centerX - contentX * clampedScale;
-  mapView.y = viewportY - centerY - contentY * clampedScale;
-  applyMapTransform();
-}
-
-function getTouchDistance(touches) {
-  if (!touches || touches.length < 2) return 0;
-  const first = touches[0];
-  const second = touches[1];
-  return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
-}
-
-function getTouchMidpoint(touches) {
-  if (!touches || touches.length < 2) return { x: 0, y: 0 };
-  const first = touches[0];
-  const second = touches[1];
-  return {
-    x: (first.clientX + second.clientX) / 2,
-    y: (first.clientY + second.clientY) / 2
-  };
-}
-
-function startMapPinch(touches) {
-  if (!mapViewport || touches.length < 2) return;
-  const rect = mapViewport.getBoundingClientRect();
-  const midpoint = getTouchMidpoint(touches);
-  mapView.pinchActive = true;
-  mapView.touchMode = "pinch";
-  mapView.pointerActive = false;
-  mapViewport.classList.remove("is-dragging");
-  mapView.pinchStartDistance = getTouchDistance(touches);
-  mapView.pinchStartScale = mapView.scale;
-  mapView.pinchOriginX = mapView.x;
-  mapView.pinchOriginY = mapView.y;
-  mapView.pinchStartMidX = midpoint.x - rect.left;
-  mapView.pinchStartMidY = midpoint.y - rect.top;
-}
-
-function bindMapInteractions() {
-  if (!mapViewport || !mapImage) return;
-
-  mapImage.addEventListener("load", () => {
-    if (!mapView.lastSrc) {
-      mapView.lastSrc = mapImage.currentSrc || mapImage.src || "";
-    }
-    resetMapView();
-  });
-
-  mapViewport.addEventListener("wheel", (event) => {
-    event.preventDefault();
-    const factor = event.deltaY < 0 ? 1.14 : 0.88;
-    zoomMapTo(mapView.scale * factor, event.clientX, event.clientY);
-  }, { passive: false });
-
-  mapViewport.addEventListener("pointerdown", (event) => {
-    if (event.pointerType !== "mouse" || event.button !== 0 || mapView.scale <= mapView.minScale + 0.01) return;
-    mapView.pointerActive = true;
-    mapView.pointerId = event.pointerId;
-    mapView.dragStartX = event.clientX;
-    mapView.dragStartY = event.clientY;
-    mapView.originX = mapView.x;
-    mapView.originY = mapView.y;
-    mapViewport.classList.add("is-dragging");
-    mapViewport.setPointerCapture?.(event.pointerId);
-  });
-
-  mapViewport.addEventListener("pointermove", (event) => {
-    if (!mapView.pointerActive || event.pointerId !== mapView.pointerId) return;
-    mapView.x = mapView.originX + (event.clientX - mapView.dragStartX);
-    mapView.y = mapView.originY + (event.clientY - mapView.dragStartY);
-    applyMapTransform();
-  });
-
-  const stopPointerDrag = (event) => {
-    if (event && mapView.pointerId !== null && event.pointerId !== mapView.pointerId) return;
-    mapView.pointerActive = false;
-    mapView.pointerId = null;
-    mapViewport?.classList.remove("is-dragging");
-  };
-
-  mapViewport.addEventListener("pointerup", stopPointerDrag);
-  mapViewport.addEventListener("pointercancel", stopPointerDrag);
-  mapViewport.addEventListener("pointerleave", (event) => {
-    if (event.pointerType === "mouse") {
-      stopPointerDrag(event);
-    }
-  });
-
-  mapViewport.addEventListener("touchstart", (event) => {
-    if (event.touches.length >= 2) {
-      startMapPinch(event.touches);
-      return;
-    }
-    if (event.touches.length === 1 && mapView.scale > mapView.minScale + 0.01) {
-      const touch = event.touches[0];
-      mapView.touchMode = "drag";
-      mapView.dragStartX = touch.clientX;
-      mapView.dragStartY = touch.clientY;
-      mapView.originX = mapView.x;
-      mapView.originY = mapView.y;
-      mapViewport.classList.add("is-dragging");
-    }
-  }, { passive: true });
-
-  mapViewport.addEventListener("touchmove", (event) => {
-    if (event.touches.length >= 2) {
-      event.preventDefault();
-      if (!mapView.pinchActive) {
-        startMapPinch(event.touches);
-      }
-      const distance = getTouchDistance(event.touches);
-      const rect = mapViewport.getBoundingClientRect();
-      const midpoint = getTouchMidpoint(event.touches);
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      const nextScale = Math.min(
-        mapView.maxScale,
-        Math.max(mapView.minScale, mapView.pinchStartScale * (distance / Math.max(1, mapView.pinchStartDistance)))
-      );
-      const currentMidX = midpoint.x - rect.left;
-      const currentMidY = midpoint.y - rect.top;
-      const contentX = (mapView.pinchStartMidX - centerX - mapView.pinchOriginX) / mapView.pinchStartScale;
-      const contentY = (mapView.pinchStartMidY - centerY - mapView.pinchOriginY) / mapView.pinchStartScale;
-      mapView.scale = nextScale;
-      mapView.x = currentMidX - centerX - contentX * nextScale;
-      mapView.y = currentMidY - centerY - contentY * nextScale;
-      applyMapTransform();
-      return;
-    }
-
-    if (mapView.touchMode === "drag" && event.touches.length === 1 && mapView.scale > mapView.minScale + 0.01) {
-      event.preventDefault();
-      const touch = event.touches[0];
-      mapView.x = mapView.originX + (touch.clientX - mapView.dragStartX);
-      mapView.y = mapView.originY + (touch.clientY - mapView.dragStartY);
-      applyMapTransform();
-    }
-  }, { passive: false });
-
-  mapViewport.addEventListener("touchend", (event) => {
-    if (event.touches.length >= 2) {
-      startMapPinch(event.touches);
-      return;
-    }
-    if (!event.touches.length) {
-      mapView.touchMode = "";
-      mapView.pinchActive = false;
-      mapViewport.classList.remove("is-dragging");
-      return;
-    }
-    if (event.touches.length === 1 && mapView.scale > mapView.minScale + 0.01) {
-      const touch = event.touches[0];
-      mapView.touchMode = "drag";
-      mapView.pinchActive = false;
-      mapView.dragStartX = touch.clientX;
-      mapView.dragStartY = touch.clientY;
-      mapView.originX = mapView.x;
-      mapView.originY = mapView.y;
-      mapViewport.classList.add("is-dragging");
-    }
-  });
-
-  mapResetBtn?.addEventListener("click", resetMapView);
-  window.addEventListener("resize", applyMapTransform);
 }
 
 function applyCharacterRuntimePatchLocally(characterId, patch = {}) {
@@ -1790,7 +1545,6 @@ function bindEvents() {
   loreQuickForm?.addEventListener("submit", handleLoreQuickSubmit);
   loreTableForm?.addEventListener("submit", handleLoreTableSubmit);
   mapForm.addEventListener("submit", handleMapFormSubmit);
-  bindMapInteractions();
 
   userFormReset.addEventListener("click", resetUserForm);
   characterFormReset.addEventListener("click", resetCharacterForm);
