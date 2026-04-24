@@ -1508,6 +1508,14 @@ function handleAdminAction(event) {
     });
   }
 
+  if (action === "preview-lore-person") {
+    openMediaModal({
+      eyebrow: button.dataset.title || "Великая личность",
+      title: button.dataset.name || "Образ личности",
+      image: button.dataset.image || ""
+    });
+  }
+
   if (action === "remove-lore-row") {
     const row = button.closest("tr");
     if (row) row.remove();

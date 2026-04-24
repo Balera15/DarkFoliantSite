@@ -126,8 +126,8 @@ function getLoreTableSchema(category) {
   if (normalized === "государства") {
     return ["Название", "Правитель", "Осн. население", "Идеология"];
   }
-  if (normalized === "поселения") {
-    return ["Название", "Принадлежность", "Местоположение", "Заметки"];
+  if (normalized === "великие личности") {
+    return ["Имя", "Титул", "Роль", "Описание", "Изображение"];
   }
   return ["Запись"];
 }
@@ -310,11 +310,11 @@ function loreFieldClass(category, label) {
     if (normalizedLabel === "идеология") return "lore-field--ideology";
   }
 
-  if (normalizedCategory === "поселения") {
-    if (normalizedLabel === "название") return "lore-field--name";
-    if (normalizedLabel === "принадлежность") return "lore-field--domain";
-    if (normalizedLabel === "местоположение") return "lore-field--location";
-    if (normalizedLabel === "заметки") return "lore-field--notes";
+  if (normalizedCategory === "великие личности") {
+    if (normalizedLabel === "имя") return "lore-field--name";
+    if (normalizedLabel === "титул") return "lore-field--title";
+    if (normalizedLabel === "роль") return "lore-field--role";
+    if (normalizedLabel === "описание") return "lore-field--notes";
   }
 
   return "";
@@ -322,28 +322,45 @@ function loreFieldClass(category, label) {
 
 function renderStructuredLoreItem(category, item) {
   const normalizedCategory = String(category || "").trim().toLowerCase();
-  if (!["государства", "поселения", "классы"].includes(normalizedCategory)) return null;
+  if (!["государства", "классы", "великие личности"].includes(normalizedCategory)) return null;
 
   const labels =
     normalizedCategory === "государства"
       ? ["Название", "Правитель", "Осн\\. население", "Идеология"]
-      : normalizedCategory === "поселения"
-        ? ["Название", "Принадлежность", "Местоположение", "Заметки"]
+      : normalizedCategory === "великие личности"
+        ? ["Имя", "Титул", "Роль", "Описание", "Изображение"]
         : ["Название", "Доступное оружие", "Сложность", "Описание"];
 
   const mapped = parseLabeledLoreRecord(item, labels);
   if (!mapped) return null;
 
-  const title = mapped["Название"] || "Без названия";
+  const title =
+    normalizedCategory === "великие личности"
+      ? mapped["Имя"] || "Без имени"
+      : mapped["Название"] || "Без названия";
   const orderedLabels =
     normalizedCategory === "государства"
       ? ["Правитель", "Осн. население", "Идеология"]
-      : normalizedCategory === "поселения"
-        ? ["Принадлежность", "Местоположение", "Заметки"]
+      : normalizedCategory === "великие личности"
+        ? ["Титул", "Роль", "Описание"]
         : ["Доступное оружие", "Сложность", "Описание"];
 
   return `<div class="lore-record lore-record--structured">
-    <h4 class="lore-record__title">${escapeHtml(title)}</h4>
+    <div class="lore-record__head">
+      <h4 class="lore-record__title">${escapeHtml(title)}</h4>
+      ${
+        normalizedCategory === "великие личности" && mapped["Изображение"]
+          ? `<button
+              class="tiny-btn lore-record__media"
+              data-action="preview-lore-person"
+              data-name="${escapeHtml(title)}"
+              data-title="${escapeHtml(mapped["Титул"] || "Великая личность")}"
+              data-image="${escapeHtml(mapped["Изображение"])}"
+              type="button"
+            >Образ</button>`
+          : ""
+      }
+    </div>
     <div class="lore-record__facts">
       ${orderedLabels
         .filter((label) => mapped[label])
@@ -518,7 +535,7 @@ function loreEntryTitle(entry) {
 function isLoreTableCategory(entryOrId) {
   const entry = resolveLoreEntry(entryOrId);
   const normalized = normalizedLoreCategory(loreEntryTitle(entry));
-  return entry?.editor === "table" || ["народы", "классы", "государства", "поселения"].includes(normalized);
+  return entry?.editor === "table" || ["народы", "классы", "государства", "великие личности"].includes(normalized);
 }
 
 function getLoreVisibleEntries() {
@@ -667,9 +684,9 @@ function loreRecordSummary(category, item, index) {
         ? "Сложность"
         : category.toLowerCase() === "государства"
           ? "Правитель"
-          : category.toLowerCase() === "поселения"
-            ? "Принадлежность"
-            : "";
+          : category.toLowerCase() === "великие личности"
+            ? "Титул"
+          : "";
   const meta = metaKey ? String(parsed?.[metaKey] || "").trim() : "";
   return { title, meta };
 }

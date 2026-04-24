@@ -661,6 +661,26 @@
   color: #e1caf5;
 }
 
+.lore-field--title .lore-key {
+  border-color: rgba(233, 185, 116, 0.42);
+  background: rgba(131, 84, 33, 0.18);
+  color: #f2cd8d;
+}
+
+.lore-field--title span:last-child {
+  color: #f2dec0;
+}
+
+.lore-field--role .lore-key {
+  border-color: rgba(142, 189, 232, 0.42);
+  background: rgba(43, 76, 109, 0.18);
+  color: #afd5f3;
+}
+
+.lore-field--role span:last-child {
+  color: #d0e5f7;
+}
+
 .lore-field--domain .lore-key {
   border-color: rgba(234, 175, 144, 0.42);
   background: rgba(129, 74, 55, 0.18);
