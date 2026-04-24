@@ -280,6 +280,48 @@ function normalizeLoreEntry(entry) {
     };
   }
 
+function normalizeLoreCategoryName(category) {
+  const trimmed = String(category || "").trim();
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "разное") return "Великие личности";
+  return trimmed;
+}
+
+function cleanupLoreEntries(entries = []) {
+  const mergedEntries = [];
+  const byCategory = new Map();
+
+  entries.forEach((entry) => {
+    const normalizedEntry = normalizeLoreEntry(entry);
+    const category = normalizeLoreCategoryName(normalizedEntry.category);
+    const normalizedCategory = String(category || "").trim().toLowerCase();
+    if (!normalizedCategory || normalizedCategory === "поселения") return;
+
+    const preparedEntry = {
+      ...normalizedEntry,
+      category,
+      items: [...normalizedEntry.items]
+    };
+    const existing = byCategory.get(normalizedCategory);
+    if (!existing) {
+      byCategory.set(normalizedCategory, preparedEntry);
+      mergedEntries.push(preparedEntry);
+      return;
+    }
+
+    preparedEntry.items.forEach((item) => {
+      if (item && !existing.items.includes(item)) {
+        existing.items.push(item);
+      }
+    });
+    if ((!existing.tone || existing.tone === "lore-tone--ember") && preparedEntry.tone) {
+      existing.tone = preparedEntry.tone;
+    }
+  });
+
+  return mergedEntries;
+}
+
   function parsePeopleLoreRecord(text) {
     const source = String(text || "").trim();
     const labelPattern = /\.(?:\s+)(Бонусы|Тип|Описание|Способности|Пометка):\s*/g;
@@ -473,7 +515,7 @@ function normalizeDb(value) {
         }))
       : [],
     bestiary: Array.isArray(value?.bestiary) ? value.bestiary.map(normalizeBestiaryEntry) : [],
-    lore: Array.isArray(value?.lore) ? value.lore.map(normalizeLoreEntry) : [],
+    lore: Array.isArray(value?.lore) ? cleanupLoreEntries(value.lore) : [],
     characterRequests: Array.isArray(value?.characterRequests)
       ? value.characterRequests.map(normalizeCharacterRequest)
       : [],
@@ -493,8 +535,10 @@ function loadDb() {
     return seeded;
   }
   try {
-    const loaded = normalizeDb(JSON.parse(fs.readFileSync(DB_PATH, "utf8")));
+    const rawDb = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+    const loaded = normalizeDb(rawDb);
     const seedDb = loadSeedDb();
+    const initialLoreChanged = JSON.stringify(Array.isArray(rawDb?.lore) ? rawDb.lore : []) !== JSON.stringify(loaded.lore);
     const nextLore = loaded.lore.map((entry) => {
       if (String(entry.category || "").trim().toLowerCase() !== "народы") return entry;
       const seedEntry =
@@ -503,7 +547,7 @@ function loadDb() {
       return repaired.changed ? { ...entry, items: repaired.items } : entry;
     });
     const nextDb = { ...loaded, lore: nextLore };
-    if (JSON.stringify(nextDb.lore) !== JSON.stringify(loaded.lore)) {
+    if (initialLoreChanged || JSON.stringify(nextDb.lore) !== JSON.stringify(loaded.lore)) {
       fs.writeFileSync(DB_PATH, JSON.stringify(nextDb, null, 2), "utf8");
     }
     return nextDb;
