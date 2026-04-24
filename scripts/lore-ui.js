@@ -874,10 +874,14 @@ async function handleLoreEditorSubmit(event) {
   if (!payload.category || !payload.items.length) return;
 
   try {
-    await api("/api/lore", { method: "POST", body: payload });
+    const response = await api("/api/lore", { method: "POST", body: payload });
     state.loreEditorDraftId = "";
     state.loreEditorDraft = null;
-    await loadBootstrap();
+    if (response?.user && response?.db) {
+      applyBootstrap(response);
+    } else {
+      await loadBootstrap();
+    }
     state.selectedLoreId = payload.id || state.selectedLoreId;
     refreshAll();
   } catch (error) {

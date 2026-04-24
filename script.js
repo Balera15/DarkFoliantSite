@@ -1270,8 +1270,12 @@ async function handleLoreQuickSubmit(event) {
   };
   if (!payload.category || !payload.items.length) return;
   try {
-    await api("/api/lore", { method: "POST", body: payload });
-    await loadBootstrap();
+    const response = await api("/api/lore", { method: "POST", body: payload });
+    if (response?.user && response?.db) {
+      applyBootstrap(response);
+    } else {
+      await loadBootstrap();
+    }
     if (payload.id) {
       state.selectedLoreId = payload.id;
     } else {
@@ -1296,8 +1300,12 @@ async function handleLoreTableSubmit(event) {
   };
   if (!payload.category || !payload.items.length) return;
   try {
-    await api("/api/lore", { method: "POST", body: payload });
-    await loadBootstrap();
+    const response = await api("/api/lore", { method: "POST", body: payload });
+    if (response?.user && response?.db) {
+      applyBootstrap(response);
+    } else {
+      await loadBootstrap();
+    }
     if (payload.id) {
       state.selectedLoreId = payload.id;
     } else {
