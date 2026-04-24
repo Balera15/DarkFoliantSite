@@ -703,6 +703,30 @@ function renderLoreEditorField(field, value) {
   </label>`;
 }
 
+function cloneLoreEntries(entries = []) {
+  return entries.map((entry) => ({
+    ...entry,
+    items: Array.isArray(entry.items) ? [...entry.items] : []
+  }));
+}
+
+function applyLorePayloadLocally(payload) {
+  const nextEntry = {
+    id: String(payload.id || "").trim(),
+    category: String(payload.category || "").trim(),
+    tone: String(payload.tone || "").trim() || "lore-tone--ember",
+    items: Array.isArray(payload.items) ? payload.items.map((item) => String(item || "").trim()).filter(Boolean) : []
+  };
+  if (!nextEntry.id || !nextEntry.category || !nextEntry.items.length) return;
+
+  const existingIndex = db.lore.findIndex((entry) => entry.id === nextEntry.id);
+  if (existingIndex >= 0) {
+    db.lore[existingIndex] = nextEntry;
+  } else {
+    db.lore.push(nextEntry);
+  }
+}
+
 function renderLoreComposer(activeLore) {
   if (!lorePanel || !loreDmEditor) return;
   const resolvedLore = activeLore || resolveLoreEntry(state.selectedLoreId);
@@ -873,6 +897,11 @@ async function handleLoreEditorSubmit(event) {
 
   if (!payload.category || !payload.items.length) return;
 
+  const previousLore = cloneLoreEntries(db.lore);
+  applyLorePayloadLocally(payload);
+  state.selectedLoreId = payload.id || state.selectedLoreId;
+  refreshAll();
+
   try {
     const response = await api("/api/lore", { method: "POST", body: payload });
     state.loreEditorDraftId = "";
@@ -885,6 +914,15 @@ async function handleLoreEditorSubmit(event) {
     state.selectedLoreId = payload.id || state.selectedLoreId;
     refreshAll();
   } catch (error) {
+    db.lore = previousLore;
+    state.loreEditorDraftId = draft.id || "";
+    state.loreEditorDraft = {
+      id: draft.id || "",
+      category: draft.category || "",
+      tone: draft.tone || "lore-tone--ember",
+      items: Array.isArray(draft.items) ? [...draft.items] : [""]
+    };
+    refreshAll();
     alert(error.message || "Не удалось сохранить раздел.");
   }
 }
