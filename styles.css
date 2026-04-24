@@ -845,6 +845,12 @@ textarea:focus {
   border-radius: 18px;
 }
 
+.map-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 #sessionNotes.is-readonly {
   opacity: 0.96;
   cursor: default;

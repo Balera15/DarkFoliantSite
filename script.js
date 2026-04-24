@@ -595,12 +595,19 @@ function renderAccountSummary() {
 
 function renderMap() {
   const img = document.querySelector(".map-panel img");
+  const openLink = document.getElementById("mapOpenLink");
+  const src = db.map.src || "assets/map.svg";
+  const note = db.map.note || "Карта Ферелдена";
   if (img) {
-    img.src = db.map.src || "assets/map.svg";
-    img.alt = db.map.note || "Карта Ферелдена";
+    img.src = src;
+    img.alt = note;
+  }
+  if (openLink) {
+    openLink.href = src;
+    openLink.setAttribute("aria-label", `${note}: открыть в новой вкладке`);
   }
   if (mapForm?.elements?.currentSrc) {
-    mapForm.elements.currentSrc.value = db.map.src || "assets/map.svg";
+    mapForm.elements.currentSrc.value = src;
   }
 }
 
