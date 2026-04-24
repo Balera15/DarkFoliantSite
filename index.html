@@ -232,7 +232,13 @@
           <span class="screen__badge">Путеводная карта</span>
         </div>
         <article class="panel map-panel">
-          <img src="assets/map.svg" alt="Карта Ферелдена">
+          <div class="map-panel__viewport" id="mapViewport">
+            <img id="mapImage" src="assets/map.svg" alt="Карта Ферелдена">
+          </div>
+          <div class="map-panel__hint">
+            <span>Колесо мыши приближает карту, а на телефоне можно масштабировать пальцами.</span>
+            <button class="ghost-btn ghost-btn--small" id="mapResetBtn" type="button">Сбросить вид</button>
+          </div>
         </article>
       </section>
 
