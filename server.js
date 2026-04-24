@@ -1417,6 +1417,21 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/lore-images") {
+    const user = requireDm(request, response);
+    if (!user) return;
+    const body = await readBody(request);
+    const previous = String(body.previous || "").trim();
+    const prefix = String(body.prefix || "lore").trim();
+    const storedPath = saveManagedUploadFromDataUrl(body.dataUrl, prefix, previous);
+    if (!storedPath) {
+      sendError(response, 400, "Не удалось прочитать изображение личности.");
+      return;
+    }
+    sendJson(response, 200, { src: storedPath });
+    return;
+  }
+
   sendError(response, 404, "Маршрут не найден.");
 }
 

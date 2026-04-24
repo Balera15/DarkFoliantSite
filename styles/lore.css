@@ -758,6 +758,12 @@
   margin-top: 14px;
 }
 
+.lore-dm-editor__upload-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
 .lore-empty {
   padding: 22px 18px;
   border-radius: 20px;

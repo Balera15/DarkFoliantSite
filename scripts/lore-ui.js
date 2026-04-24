@@ -657,11 +657,13 @@ function ensureLoreEditorDraft(entryOrId) {
 
 function loreEditorFieldDefs(category) {
   const columns = getLoreTableSchema(category);
+  const normalizedCategory = normalizedLoreCategory(category);
   return columns.map((column) => ({
     key: column,
     label: column,
     options: getLoreTableSelectOptions(category, column),
-    multiline: columns.length === 1 || ["Описание", "Заметки", "Способности"].includes(column)
+    multiline: columns.length === 1 || ["Описание", "Заметки", "Способности"].includes(column),
+    upload: normalizedCategory === "великие личности" && column === "Изображение"
   }));
 }
 
@@ -692,6 +694,21 @@ function loreRecordSummary(category, item, index) {
 }
 
 function renderLoreEditorField(field, value) {
+  if (field.upload) {
+    return `<label class="auth-field lore-dm-editor__field lore-dm-editor__field--wide">
+      <span>${escapeHtml(field.label)}</span>
+      <input type="file" data-lore-upload="${escapeAttribute(field.key)}" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+      <input type="text" value="${escapeAttribute(value)}" placeholder="Путь появится после загрузки файла" readonly>
+      <div class="lore-dm-editor__upload-actions">
+        ${
+          value
+            ? `<button class="ghost-btn ghost-btn--small" data-lore-editor-action="preview-record-image" type="button">Открыть образ</button>`
+            : ""
+        }
+      </div>
+    </label>`;
+  }
+
   if (field.options) {
     return `<label class="auth-field lore-dm-editor__field">
       <span>${escapeHtml(field.label)}</span>
@@ -841,13 +858,43 @@ function updateLoreDraftFromField(fieldName, value) {
   draft.items[index] = buildLoreItemFromTable(category, currentRow);
 }
 
-function handleLoreEditorInput(event) {
+async function handleLoreEditorInput(event) {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
   if (!state.loreEditorDraft) return;
 
   const fieldName = target.dataset?.loreField || "";
   const metaName = target.dataset?.loreMeta || "";
+  const uploadField = target.dataset?.loreUpload || "";
+
+  if (uploadField && target instanceof HTMLInputElement && target.files?.[0]) {
+    const draft = state.loreEditorDraft;
+    const category = String(draft.category || "").trim() || "История";
+    const index = state.selectedLoreRecordIndex;
+    const currentRow = parseLoreItemForTable(category, draft.items[index] || "");
+    try {
+      const dataUrl = await readFileAsDataUrl(target.files[0]);
+      const response = await api("/api/lore-images", {
+        method: "POST",
+        body: {
+          dataUrl,
+          previous: String(currentRow[uploadField] || "").trim(),
+          prefix: "legend"
+        }
+      });
+      const nextImage = String(response?.src || "").trim();
+      if (!nextImage) {
+        throw new Error("Сервер не вернул путь к изображению.");
+      }
+      updateLoreDraftFromField(uploadField, nextImage);
+      renderLoreComposer(resolveLoreEntry(state.selectedLoreId));
+    } catch (error) {
+      alert(error.message || "Не удалось загрузить образ личности.");
+    } finally {
+      target.value = "";
+    }
+    return;
+  }
 
   if (fieldName) {
     const value = "value" in target ? target.value : target.textContent || "";
@@ -896,6 +943,19 @@ function handleLoreEditorAction(event) {
     state.loreEditorDraft = null;
     state.selectedLoreRecordIndex = 0;
     renderLoreComposer(resolveLoreEntry(state.selectedLoreId));
+    return;
+  }
+
+  if (action === "preview-record-image") {
+    const currentItem = draft.items[state.selectedLoreRecordIndex] || "";
+    const currentRow = parseLoreItemForTable(category, currentItem);
+    const image = String(currentRow["Изображение"] || "").trim();
+    if (!image) return;
+    openMediaModal({
+      eyebrow: String(currentRow["Титул"] || "Великая личность").trim() || "Великая личность",
+      title: String(currentRow["Имя"] || "Образ личности").trim() || "Образ личности",
+      image
+    });
   }
 }
 
