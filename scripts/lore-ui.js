@@ -266,8 +266,13 @@ function renderLoreTableRows(category, rows) {
         .map((column) => {
           const value = String(row[column] || "");
           const options = getLoreTableSelectOptions(category, column);
+          const normalizedCategory = normalizedLoreCategory(category);
           const multiline =
-            value.length > 90 || column === "Описание" || column === "Заметки" || column === "Способности";
+            value.length > 90 ||
+            column === "Описание" ||
+            column === "Заметки" ||
+            column === "Способности" ||
+            (normalizedCategory === "государства" && column === "Осн. население");
           if (options) {
             return `<td><select data-column="${escapeHtml(column)}">
               <option value="">Выбрать</option>
