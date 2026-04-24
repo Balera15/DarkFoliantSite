@@ -508,7 +508,13 @@ async function api(path, options = {}) {
     : null;
 
   if (!response.ok) {
-    const error = new Error(payload?.error || "Ошибка запроса.");
+    const fallbackMessage =
+      response.status === 413
+        ? "Файл слишком большой. Уменьши изображение карты или загрузи более лёгкую версию."
+        : response.status >= 500
+          ? "Сервер не смог обработать запрос."
+          : `Ошибка запроса (${response.status}).`;
+    const error = new Error(payload?.error || fallbackMessage);
     error.status = response.status;
     throw error;
   }
@@ -898,12 +904,87 @@ function readFileAsDataUrl(file) {
     });
   }
 
+  function estimateDataUrlBytes(dataUrl) {
+    const source = String(dataUrl || "");
+    const base64Index = source.indexOf(",");
+    if (base64Index < 0) return 0;
+    const base64 = source.slice(base64Index + 1);
+    return Math.ceil((base64.length * 3) / 4);
+  }
+
+  function loadImageElement(source) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Не удалось подготовить изображение карты."));
+      image.src = source;
+    });
+  }
+
+  async function optimizeMapFile(file) {
+    const originalDataUrl = await readFileAsDataUrl(file);
+    const mime = String(file?.type || "").toLowerCase();
+    if (!mime || mime === "image/svg+xml" || !/^image\/(png|jpeg|jpg|webp)$/i.test(mime)) {
+      return originalDataUrl;
+    }
+
+    const targetBytes = 9 * 1024 * 1024;
+    if (file.size <= targetBytes) {
+      return originalDataUrl;
+    }
+
+    const image = await loadImageElement(originalDataUrl);
+    let width = image.naturalWidth || image.width || 0;
+    let height = image.naturalHeight || image.height || 0;
+    if (!width || !height) {
+      return originalDataUrl;
+    }
+
+    const maxDimension = 2800;
+    const largestSide = Math.max(width, height);
+    if (largestSide > maxDimension) {
+      const scale = maxDimension / largestSide;
+      width = Math.max(1, Math.round(width * scale));
+      height = Math.max(1, Math.round(height * scale));
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return originalDataUrl;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const qualities = [0.9, 0.82, 0.74, 0.66, 0.58, 0.5];
+    let bestCandidate = originalDataUrl;
+    for (const quality of qualities) {
+      const candidate = canvas.toDataURL("image/jpeg", quality);
+      bestCandidate = candidate;
+      if (estimateDataUrlBytes(candidate) <= targetBytes) {
+        return candidate;
+      }
+    }
+
+    return bestCandidate;
+  }
+
   async function resolveFormFileValue(form, fileFieldName, currentFieldName) {
     if (!form) return "";
     const currentValue = safeMediaUrl(form.elements[currentFieldName]?.value || "");
     const selectedFile = form.elements[fileFieldName]?.files?.[0];
     if (!selectedFile) return currentValue;
     return readFileAsDataUrl(selectedFile);
+  }
+
+  async function resolveMapFileValue(form, fileFieldName, currentFieldName) {
+    if (!form) return "";
+    const currentValue = safeMediaUrl(form.elements[currentFieldName]?.value || "");
+    const selectedFile = form.elements[fileFieldName]?.files?.[0];
+    if (!selectedFile) return currentValue;
+    return optimizeMapFile(selectedFile);
   }
 
 async function uploadRaceImage() {
@@ -1222,7 +1303,7 @@ async function handleLoreTableSubmit(event) {
 async function handleMapFormSubmit(event) {
     event.preventDefault();
     const data = new FormData(mapForm);
-    const src = await resolveFormFileValue(mapForm, "mapFile", "currentSrc");
+    const src = await resolveMapFileValue(mapForm, "mapFile", "currentSrc");
     try {
       await api("/api/map", {
         method: "PUT",

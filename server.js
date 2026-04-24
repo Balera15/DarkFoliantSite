@@ -215,9 +215,35 @@ function getRaceImagePublicPath(fileName) {
   return path.join(MEDIA_PUBLIC_PREFIX, fileName).replace(/\\/g, "/");
 }
 
+function isManagedUploadPath(storedPath) {
+  const normalized = String(storedPath || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  return normalized.startsWith(`${MEDIA_PUBLIC_PREFIX}/`);
+}
+
 function getRaceImageAbsolutePath(storedPath) {
+  if (!isManagedUploadPath(storedPath)) return "";
   const fileName = path.basename(String(storedPath || "").trim());
   return fileName ? path.join(RACE_UPLOAD_DIR, fileName) : "";
+}
+
+function removeManagedUpload(storedPath) {
+  const absolutePath = getRaceImageAbsolutePath(storedPath);
+  if (absolutePath && absolutePath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(absolutePath)) {
+    fs.unlinkSync(absolutePath);
+  }
+}
+
+function saveManagedUploadFromDataUrl(dataUrl, prefix, previousStoredPath = "") {
+  const decoded = decodeDataUrl(dataUrl);
+  if (!decoded) return "";
+  if (previousStoredPath) {
+    removeManagedUpload(previousStoredPath);
+  }
+  const safePrefix = String(prefix || "upload").trim().replace(/[^a-z0-9_-]+/gi, "-") || "upload";
+  const fileName = `${safePrefix}-${crypto.randomUUID()}${decoded.ext}`;
+  const targetPath = path.join(RACE_UPLOAD_DIR, fileName);
+  fs.writeFileSync(targetPath, decoded.buffer);
+  return getRaceImagePublicPath(fileName);
 }
 
 function hashPassword(password) {
@@ -996,8 +1022,18 @@ async function handleApi(request, response, url) {
     const user = requireDm(request, response);
     if (!user) return;
     const body = await readBody(request);
+    const rawSrc = String(body.src || "").trim();
+    let nextSrc = rawSrc || "assets/map.svg";
+    if (/^data:image\//i.test(rawSrc)) {
+      const storedPath = saveManagedUploadFromDataUrl(rawSrc, "map", db.map?.src || "");
+      if (!storedPath) {
+        sendError(response, 400, "Не удалось прочитать файл карты.");
+        return;
+      }
+      nextSrc = storedPath;
+    }
     db.map = {
-      src: String(body.src || "").trim() || "assets/map.svg",
+      src: nextSrc,
       note: String(body.note || "").trim() || "Путеводная карта"
     };
     saveDb(db);
@@ -1360,24 +1396,16 @@ async function handleApi(request, response, url) {
     const body = await readBody(request);
     const raceName = String(body.name || "").trim();
     const slug = slugifyRaceName(raceName);
-    const decoded = decodeDataUrl(body.dataUrl);
-    if (!slug || !decoded) {
+    if (!slug) {
       sendError(response, 400, "Не удалось прочитать изображение расы.");
       return;
     }
-
-    const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
-    if (previous) {
-      const previousPath = getRaceImageAbsolutePath(previous);
-      if (previousPath && previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
-        fs.unlinkSync(previousPath);
-      }
+    const storedPath = saveManagedUploadFromDataUrl(body.dataUrl, slug, typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "");
+    if (!storedPath) {
+      sendError(response, 400, "Не удалось прочитать изображение расы.");
+      return;
     }
-
-    const fileName = `${slug}${decoded.ext}`;
-    const targetPath = path.join(RACE_UPLOAD_DIR, fileName);
-    fs.writeFileSync(targetPath, decoded.buffer);
-    db.raceImages = { ...db.raceImages, [slug]: getRaceImagePublicPath(fileName) };
+    db.raceImages = { ...db.raceImages, [slug]: storedPath };
     saveDb(db);
     sendJson(response, 200, payloadFor(user));
     return;
@@ -1388,12 +1416,7 @@ async function handleApi(request, response, url) {
     if (!user) return;
     const slug = decodeURIComponent(url.pathname.slice("/api/race-images/".length));
     const previous = typeof db.raceImages?.[slug] === "string" ? db.raceImages[slug] : "";
-    if (previous) {
-      const previousPath = getRaceImageAbsolutePath(previous);
-      if (previousPath && previousPath.startsWith(RACE_UPLOAD_DIR) && fs.existsSync(previousPath)) {
-        fs.unlinkSync(previousPath);
-      }
-    }
+    removeManagedUpload(previous);
     if (db.raceImages && slug in db.raceImages) {
       delete db.raceImages[slug];
       db.raceImages = { ...db.raceImages };
